@@ -1,0 +1,573 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GFAM Eng</title>
+  <link rel="stylesheet" href="https://stackedit.io/style.css" />
+</head>
+
+<body class="stackedit">
+  <div class="stackedit__left">
+    <div class="stackedit__toc">
+      
+<ul>
+<li><a href="#subquant-researchsubbr-global-fixed-income-allocation-model-gfam">Quant Research Global Fixed-income Allocation Model (GFAM)</a></li>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#background-dual-momentum-strategy">Background: Dual momentum strategy</a>
+<ul>
+<li></li>
+</ul>
+</li>
+<li><a href="#objectives">Objectives</a></li>
+<li><a href="#methodology">Methodology</a>
+<ul>
+<li><a href="#universe">Universe</a></li>
+<li><a href="#key-idea">Key idea</a></li>
+<li><a href="#simulation-setup">Simulation setup</a>
+<ul>
+<li></li>
+</ul>
+</li>
+<li><a href="#trading-rules">Trading rules</a></li>
+</ul>
+</li>
+<li><a href="#backtest">Backtest</a>
+<ul>
+<li><a href="#absolute-vs.-relative-vs.-dual-momentum">Absolute vs. Relative vs. Dual momentum</a></li>
+<li><a href="#calibration">Calibration</a></li>
+<li><a href="#reinforcement">Reinforcement</a></li>
+<li><a href="#evaluation">Evaluation</a></li>
+<li><a href="#portfolio-history">Portfolio history</a></li>
+<li><a href="#drawback-high-turnover">Drawback: High turnover</a></li>
+</ul>
+</li>
+<li><a href="#conclusions">Conclusions</a></li>
+<li><a href="#next-agenda">Next agenda</a></li>
+<li><a href="#appendix">Appendix</a>
+<ul>
+<li><a href="#performance-measures">Performance measures</a></li>
+</ul>
+</li>
+</ul>
+
+    </div>
+  </div>
+  <div class="stackedit__right">
+    <div class="stackedit__html">
+      <h1 id="subquant-researchsubbr-global-fixed-income-allocation-model-gfam"><sub>Quant Research</sub><br> Global Fixed-income Allocation Model (GFAM)</h1>
+<p>2018.05.07<br>
+Overseas investment div.<br>
+<strong>Sejin Kang</strong></p>
+<h1 id="overview">Overview</h1>
+<p><strong>Global Fixed-income Allocation Model</strong> was designed using the global bond ETFs listed in the US. Gary Antonacci’s dual momentum strategy was adopted as a basic framework, but another strategy called Reinforcement was added to create a more practical model for institutional investors. Selecting more than 5 assets in the universe was most appropriate in terms of Sharpe.</p>
+<p><strong>GFAM Cumulative return</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/cum_base.png" alt="cum_base"></p>
+<p>Expected performance:</p>
+<ul>
+<li><strong>Long-term: CAGR 7-9%, Volatility 7-8%, Sharpe 1.1-1.2</strong></li>
+<li><strong>Short-term: CAGR 7-8%, Volatility 7%, Sharpe 1.1-1.2</strong></li>
+<li><strong>MDD 7-15%</strong></li>
+<li><strong>1Y Loss probability 1-3%</strong></li>
+</ul>
+<h1 id="background-dual-momentum-strategy">Background: Dual momentum strategy</h1>
+<p>Dual momentum is the name of an investment strategy designed by Gary Antonacci in 2012. Antonacci distinguished the momentum strategy into two broad categories as follows.</p>
+<ul>
+<li>
+<p><strong>Absolute momentum</strong><br>
+Strategy to invest in the upside and to have cash (or safe assets) in the downfall. He defines the asset’s return over the past 12 months above the deposit rate as the upside, and vice versa as the downside (of course it depends on the definition, and in this report we used a slightly different method). It is also called Trend-following strategy or Time-series momentum strategy.</p>
+</li>
+<li>
+<p><strong>Relative momentum</strong><br>
+Strategy to intensively invest in assets with relatively high momentum by comparing momentum indicators across the assets. Like the absolute momentum strategy, Antonacci compared the past 12-month returns. It is also called Cross-sectional momentum strategy.</p>
+</li>
+</ul>
+<p>According to his experiments, Absolute momentum strategy has excellent defense against uncertainties such as market shock. On the other hand, Relative momentum strategy is very vulnerable to volatility, but the expected return is higher.</p>
+<h3 id="centerabsolute--relative-momentum--dual-momentumcenter"><center>Absolute + Relative momentum = Dual momentum</center></h3>
+<p>Antonacci’s idea is <strong>to apply both of these momentum strategies simultaneously</strong>. In other words, you invest basically in assets that have relatively high momentum across the various assets, and if the momentum of the asset weakens in a sense, you can change to cash (or safe assets). In this way, both attach and defense are taken at the same time.</p>
+<p>For a more detailed description of Dual momentum strategy, please refer to the following.</p>
+<ul>
+<li>Paper: <a href="http://www.optimalmomentum.com/RiskPremiaHarvesting.pdf">Risk Premia Havesting Through Dual Momentum</a> (Portfolio Management Consultants, 2012)</li>
+<li>Book: <a href="https://books.google.co.kr/books/about/Dual_Momentum_Investing_An_Innovative_St.html?id=PVGoBAAAQBAJ&amp;source=kp_cover&amp;redir_esc=y">Dual Momentum</a> (McGraw-Hill, 2014)</li>
+<li>Website: <a href="https://www.optimalmomentum.com">https://www.optimalmomentum.com</a></li>
+</ul>
+<br>
+<blockquote>
+<p><strong>NOTE</strong><br>
+There are various opinions on why the momentum strategy works, and the best known is the <strong>Herding effect</strong>, which is a representative anomaly of Behavioral finance.</p>
+<center><i>Herding effect</i></center>
+<center><img src="https://gem763.github.io/quanty/gfam/herding.jpg" alt="herding"></center>
+<p>According to this, winner in the past periods is likely to be a winner for a while (Relative momentum). In a similar vein, it is unlikely that the rising price of an asset will suddenly fall. Even if there is a significant change in the current value of a rising asset, the Herding effect is a friction on the deprecation of the asset. This provides a good chance to move to cash asset at the beginning of the downturn. Note that the <strong>Herding effect is known to work much better at ASSET CLASS</strong> than individual stocks.</p>
+</blockquote>
+<h1 id="objectives">Objectives</h1>
+<p>Antonacci’s paper describes his application of the dual momentum strategy to the fixed-income universe, and the results are fairly good. The following are some of the results published in his paper.</p>
+<p><img src="https://gem763.github.io/quanty/gfam/stats_antonacci.PNG" alt="stats_antonacci"></p>
+<p><img src="https://gem763.github.io/quanty/gfam/cum_antonacci.PNG" alt="cum_antonacci"></p>
+<p>To summarize the results briefly,</p>
+<ul>
+<li>Universe: <strong>US High yield</strong>(Bank of America Merrill Lynch U.S. Cash Pay High Yield Index), <strong>US Credit bond</strong>(Barclays Capital Aggregate Bond Index)</li>
+<li>Safe asset: <strong>US T-bill</strong>(Bank of America Merrill Lynch 3-Month Treasury bill Index)</li>
+<li><strong>CAGR 10.5%</strong> (similar to US High yield)</li>
+<li><strong>Volatility 4.7%</strong> (50% of US High yield)</li>
+<li><strong>Sharpe 1.0</strong> (2 times higher than US High yield)</li>
+<li><strong>MDD 8.2%</strong> (25% of US High yield)</li>
+</ul>
+<p>However, there seems to be some problems to apply it directly to actual world, The reasons are,</p>
+<ul>
+<li>
+<p><strong>Universe is very limited</strong><br>
+Since only US High yield and US Credit bonds were used for his backtest, there are too few assets for institutional investors to use for the global fixed-income allocation. Antonacci, on the other hand, argued that extending the investment universe and segmenting the asset class further are not necessarily good, and that the negative effects of impeding the diversification effect could be greater.</p>
+</li>
+<li>
+<p><strong>Backtest is somewhat unrealistic</strong><br>
+His backtests were made using the indices rather than real tradable ETFs or stocks or bonds. The time horizon of the tradable assets is so short, so it is an inevitable choice. In addition, he simultaneously made both investment decisions (such as momentum calculation) and rebalancing, based on the closing prices at the end of the month. As you can see, this type of trading is virtually impossible.</p>
+</li>
+</ul>
+<br>
+Therefore, in light of the above problems, we set the following points in the report.  
+<ul>
+<li><strong>Substantial development of Global fixed-income Allocation strategy by fully extending the investment universe</strong>
+<ul>
+<li>Global bond ETFs listed in the US (non-US exchanges not yet considered)</li>
+<li>Cover not only USD-dominated, but also local currency bonds</li>
+<li>Sector, Duration, USD hedge or not</li>
+</ul>
+</li>
+<li><strong>Building practical strategy through more realistic backtest</strong>
+<ul>
+<li>Rigorous simulation using the daily market price of ETFs that can be traded (trading on the next business day of investment decision, etc)</li>
+<li>Cash management</li>
+</ul>
+</li>
+</ul>
+<h1 id="methodology">Methodology</h1>
+<h2 id="universe">Universe</h2>
+<p>The following 24 ETFs listed in the US are selected as investment universe. Market-caps are mostly over USD 1B. ETFs with long enough underlying indices were also selected, even if the inception date is somewhat recent.</p>
+<p><em>As of 2018.04.30</em></p>
+
+<table>
+<thead>
+<tr>
+<th align="center">Ticker</th>
+<th align="center">Description</th>
+<th align="center">Duration (Year)</th>
+<th align="center">MarketCap (B,USD)</th>
+<th align="center">Expense (%)</th>
+<th align="center">Inception date</th>
+<th align="center">Underlying start</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">AGG</td>
+<td align="center">US Aggregate</td>
+<td align="center">6.1</td>
+<td align="center">55.2</td>
+<td align="center">0.05</td>
+<td align="center">2003-09</td>
+<td align="center">1976-01</td>
+</tr>
+<tr>
+<td align="center">BIL</td>
+<td align="center">US T-bill</td>
+<td align="center">0.2</td>
+<td align="center">3.4</td>
+<td align="center">0.14</td>
+<td align="center">2007-05</td>
+<td align="center">1991-12</td>
+</tr>
+<tr>
+<td align="center">SHY</td>
+<td align="center">US Treasury Short</td>
+<td align="center">1.9</td>
+<td align="center">12.6</td>
+<td align="center">0.15</td>
+<td align="center">2002-07</td>
+<td align="center">2004-12</td>
+</tr>
+<tr>
+<td align="center">IEF</td>
+<td align="center">US Treasury Intermediate</td>
+<td align="center">7.5</td>
+<td align="center">8.7</td>
+<td align="center">0.15</td>
+<td align="center">2002-07</td>
+<td align="center">2004-12</td>
+</tr>
+<tr>
+<td align="center">TLT</td>
+<td align="center">US Treasury Long</td>
+<td align="center">17.5</td>
+<td align="center">7.7</td>
+<td align="center">0.15</td>
+<td align="center">2002-07</td>
+<td align="center">2004-12</td>
+</tr>
+<tr>
+<td align="center">TIP</td>
+<td align="center">US Tips</td>
+<td align="center">7.8</td>
+<td align="center">24.3</td>
+<td align="center">0.20</td>
+<td align="center">2003-12</td>
+<td align="center">1997-03</td>
+</tr>
+<tr>
+<td align="center">LQD</td>
+<td align="center">US Investment grade</td>
+<td align="center">8.6</td>
+<td align="center">32.1</td>
+<td align="center">0.15</td>
+<td align="center">2002-07</td>
+<td align="center">1998-12</td>
+</tr>
+<tr>
+<td align="center">HYG</td>
+<td align="center">US High yield</td>
+<td align="center">3.9</td>
+<td align="center">15.1</td>
+<td align="center">0.49</td>
+<td align="center">2007-04</td>
+<td align="center">1998-12</td>
+</tr>
+<tr>
+<td align="center">MBB</td>
+<td align="center">US MBS</td>
+<td align="center">5.5</td>
+<td align="center">12.1</td>
+<td align="center">0.09</td>
+<td align="center">2007-03</td>
+<td align="center">1976-01</td>
+</tr>
+<tr>
+<td align="center">MUB</td>
+<td align="center">US Muni</td>
+<td align="center">4.9</td>
+<td align="center">9.0</td>
+<td align="center">0.25</td>
+<td align="center">2007-09</td>
+<td align="center">2007-08</td>
+</tr>
+<tr>
+<td align="center">BKLN</td>
+<td align="center">US Bankloan</td>
+<td align="center">4.0</td>
+<td align="center">8.3</td>
+<td align="center">0.65</td>
+<td align="center">2011-03</td>
+<td align="center">2001-12</td>
+</tr>
+<tr>
+<td align="center">CWB</td>
+<td align="center">US Convertible</td>
+<td align="center"></td>
+<td align="center">4.3</td>
+<td align="center">0.40</td>
+<td align="center">2009-04</td>
+<td align="center">2003-01</td>
+</tr>
+<tr>
+<td align="center">HYD</td>
+<td align="center">US High yield muni</td>
+<td align="center">6.5</td>
+<td align="center">2.4</td>
+<td align="center">0.35</td>
+<td align="center">2009-02</td>
+<td align="center">1995-12</td>
+</tr>
+<tr>
+<td align="center">PFF</td>
+<td align="center">US Preferred stock</td>
+<td align="center">6.1</td>
+<td align="center">16.1</td>
+<td align="center">0.47</td>
+<td align="center">2007-03</td>
+<td align="center">2003-09</td>
+</tr>
+<tr>
+<td align="center">BWX</td>
+<td align="center">Ex-US Treasury local (USD unhedged)</td>
+<td align="center">8.0</td>
+<td align="center">2.1</td>
+<td align="center">0.50</td>
+<td align="center">2007-10</td>
+<td align="center">2007-09</td>
+</tr>
+<tr>
+<td align="center">WIP</td>
+<td align="center">Ex-US Tips local (USD unhedged)</td>
+<td align="center">7.2</td>
+<td align="center">0.7</td>
+<td align="center">0.50</td>
+<td align="center">2008-03</td>
+<td align="center">2011-01</td>
+</tr>
+<tr>
+<td align="center">BNDX</td>
+<td align="center">Ex-US Treasury local (USD hedged)</td>
+<td align="center">7.8</td>
+<td align="center">11.5</td>
+<td align="center">0.11</td>
+<td align="center">2013-06</td>
+<td align="center">2013-01</td>
+</tr>
+<tr>
+<td align="center">IGOV</td>
+<td align="center">Developed Treasury local (USD unhedged)</td>
+<td align="center">8.4</td>
+<td align="center">1.1</td>
+<td align="center">0.35</td>
+<td align="center">2009-01</td>
+<td align="center">2001-04</td>
+</tr>
+<tr>
+<td align="center">FLOT</td>
+<td align="center">Developed Float-rate USD</td>
+<td align="center">1.9</td>
+<td align="center">9.1</td>
+<td align="center">0.20</td>
+<td align="center">2011-06</td>
+<td align="center">2003-10</td>
+</tr>
+<tr>
+<td align="center">PICB</td>
+<td align="center">Developed IG local (USD unhedged)</td>
+<td align="center">7.5</td>
+<td align="center">0.1</td>
+<td align="center">0.50</td>
+<td align="center">2010-06</td>
+<td align="center">2010-04</td>
+</tr>
+<tr>
+<td align="center">HYXU</td>
+<td align="center">Developed HY local (USD unhedged)</td>
+<td align="center">3.9</td>
+<td align="center">0.1</td>
+<td align="center">0.40</td>
+<td align="center">2012-04</td>
+<td align="center">2009-06</td>
+</tr>
+<tr>
+<td align="center">EMB</td>
+<td align="center">EM Treasury USD</td>
+<td align="center">7.3</td>
+<td align="center">11.4</td>
+<td align="center">0.39</td>
+<td align="center">2007-12</td>
+<td align="center">1997-12</td>
+</tr>
+<tr>
+<td align="center">EMLC</td>
+<td align="center">EM Treasury local (USD unhedged)</td>
+<td align="center">5.2</td>
+<td align="center">5.6</td>
+<td align="center">0.42</td>
+<td align="center">2010-07</td>
+<td align="center">2007-12</td>
+</tr>
+<tr>
+<td align="center">EMHY</td>
+<td align="center">EM HY USD</td>
+<td align="center">5.8</td>
+<td align="center">0.6</td>
+<td align="center">0.50</td>
+<td align="center">2012-04</td>
+<td align="center">2001-10</td>
+</tr>
+</tbody>
+</table><br>
+<h2 id="key-idea">Key idea</h2>
+<p>As noted in Antonacci’s paper, the expected performance of the original dual momentum strategy in the global bond market is: <strong>CAGR similar with the US High yield</strong> and <strong>50% of US High yield volatility</strong>. But this is not enough. In this report, we will utilize relatively risky assets in the bond market to level-up the expectations for the intrinsic dual momentum.</p>
+<p>The idea is very simple. <strong>Momentum strategies are effective in markets with high volatility</strong>. In other words, it is known that the momentum strategy works well in <strong>stock markets rather than bond markets, small-cap stocks rather than large-cap stocks, and emerging countries rather than developed countries</strong> . In the above investment universe, the duration of <strong>TLT</strong>(US Treasury Long ) is over 17 years, the longest in the GFAM universe, and highly volatile. Therefore, if some additive momentum (defined below) of US Treasury Long is identified, the original dual momentum can be reinforced by increasing or adding the weight of this asset. That is to say,</p>
+<h3 id="centergfam--dual-momentum--reinforcementcenter"><center>GFAM = Dual momentum + Reinforcement</center></h3>
+<h2 id="simulation-setup">Simulation setup</h2>
+<ul>
+<li><strong>Momentum</strong>: Antonacci defines the momentum indicator for each asset as the 12-month return of the asset, but this report uses the following definition to reflect some of the <strong>recent</strong> momentum</li>
+</ul>
+<h4 id="centermomentum--100-of-12-month-return--50-of-6-month-return--25-of-3-month-returncenter"><center>Momentum = 100% of 12-month return + 50% of 6-month return + 25% of 3-month return</center></h4>
+<ul>
+<li><strong>Mid-term trend</strong>: Apart from the above momentum indicators, assume that there is a mid-term trend for the asset when the asset’s <strong>3-month moving average &gt; 12-month moving average</strong>. It is used for Reinforcement strategy.</li>
+<li>Period: 2002.12.31 ~ 2018.03.31 (about 15 years)</li>
+<li>Monthly rebalancing</li>
+<li>Transaction cost 10bp</li>
+<li>Gross exposure 99% (considering the transaction cost withdrawal)</li>
+<li>Risky asset: <strong>TLT</strong> (US Treasury Long)</li>
+<li>Cash asset: <strong>AGG</strong> (US Aggregate)</li>
+</ul>
+<p>For reference, AGG is treated as a benchmark in this report. Therefore, if the absolute momentum weakens, the cash asset is set to AGG at least to follow the benchmark. <strong>BIL</strong> (US T-bill) as a cash asset does not matter much, and in this case, CAGR of the backtest results described below would be slightly lower.</p>
+<br>
+<h2 id="trading-rules">Trading rules</h2>
+<ol>
+<li>
+<p>Investment decision making: Last business day of every month</p>
+<ul>
+<li><strong>Dual momentum</strong>
+<ul>
+<li>Absolute momentum: Remove the asset with (-) momentum from the universe.</li>
+<li>Relative momentum: Select the top <strong>N</strong> assets of momentum. <strong>N</strong> will be determined later.</li>
+</ul>
+</li>
+<li><strong>Reinforcement</strong>: When the number of selected assets in Dual momentum above is not enough,
+<ul>
+<li>If the risky asset has (+) momentum or has Mid-term trend, fill in the remaining numbers with that risky asset.</li>
+<li>If not, replace it with a cash asset.</li>
+</ul>
+</li>
+<li><strong>Rank-based weighting</strong>: Determine portfolio weights according to the momentum ranking of the selected stocks. In other words, the weight of stock with high momentum is high and vice versa.</li>
+</ul>
+</li>
+<li>
+<p>Rebalancing: First business day of every month</p>
+<ul>
+<li>Rebalance on the adjusted closing price of the day, only if the newly-decided portfolio is different from the previous month’s portfolio.</li>
+<li>If an asset is not tradable in the market (before inception), the market price of the asset is inversely estimated using the underlying index of that asset.</li>
+</ul>
+</li>
+</ol>
+<h1 id="backtest">Backtest</h1>
+<h2 id="absolute-vs.-relative-vs.-dual-momentum">Absolute vs. Relative vs. Dual momentum</h2>
+<p>For <strong>N=1</strong>, let us compare the performance of the two strategies that make up the dual momentum: absolute momentum and relative momentum. Below is the cumulative returns chart for each strategy. Reinforcement strategies have not yet been applied.</p>
+<p><img src="https://gem763.github.io/quanty/gfam/cum_compare_mode.png" alt="cum_compare_mode"></p>
+<p><img src="https://gem763.github.io/quanty/gfam/stats_compare_mode.png" alt="stats_compare_mode"></p>
+<ul>
+<li><strong>Absolute</strong> momentum strategy (blue) shows relatively stable performance because it moves to cash if the market is on downturn. But CAGR is the smallest.</li>
+<li><strong>Relative</strong> momentum strategy (orange) is highly volatile depending on the market situation, but relatively high returns are expected.</li>
+<li><strong>Dual</strong> momentum strategy (red) is relatively stable (especially in terms of MDD), but when making a profit, it is profitable as the relative momentum.</li>
+<li>That is the same as Antonacci’s claim.</li>
+<li>If so, how many assets should we choose?</li>
+</ul>
+<h2 id="calibration">Calibration</h2>
+<p>Measured the performance of the dual momentum strategy as changing <strong>N</strong> from 1 to 10.</p>
+<p><img src="https://gem763.github.io/quanty/gfam/stats_npicks_1_10.png" alt="stats_npicks_1_10"></p>
+<ul>
+<li>The larger the <strong>N</strong>, the lower the CAGR.</li>
+<li>However, volatility and MDD are tend to be much smaller.</li>
+<li>Thus, Sharpe ratio was saturated after <strong>N=5</strong>.</li>
+<li>For reference, there are some articles claiming that the reasonable number of selection is 20-30% of the number of universe assets in case the universe is large like this report. Since the number of our universe assets is 24 in total, the appropriate selection could be <strong>N=5~7</strong>.</li>
+<li>Choosing only one asset may be a good choice in terms of total returns, but the stability is very poor. In the following chart, we can see that the cumulative return is stably saturated at around <strong>N=5</strong>.</li>
+</ul>
+<p><img src="https://gem763.github.io/quanty/gfam/cum_npicks_1_5.png" alt="cum_npicks_1_5"></p>
+<h2 id="reinforcement">Reinforcement</h2>
+<p>Let us apply Reinforcement strategy to the dual momentum for <strong>N=5</strong>. If the number of assets selected by the dual momentum strategy is insufficient, the determination is made as to whether or not to increase the weight of the relatively-risky US Treasury Long.</p>
+<p><img src="https://gem763.github.io/quanty/gfam/cum_compare_reinforce.png" alt="cum_compare_reinforce"></p>
+<ul>
+<li>Dual momentum strategy only (blue): CAGR similar to US High yield (orange) and relatively low volatility are observed. This is the same result as the Antonacci’s paper.</li>
+<li><strong>Dual momentum + Reinforcement</strong> (red): As a result of increasing the exposures of relatively-risky assets, <strong>better results were obtained compared with those applied only to dual momentum</strong>. The volatility becomes larger instead.</li>
+</ul>
+<h2 id="evaluation">Evaluation</h2>
+<p>Now, let’s call the strategy which processes according to the above trading rule (= Dual momentum + Reinforcement) as <strong>GFAM</strong> (Global Fixed-income Allocation Model). And let’s measure the performance of GFAM for <strong>N=5</strong>. ACWI (MSCI All country), AGG (US Aggregate), and HYG (US High yield) are added for reference.</p>
+<p><strong>Cumulative return</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/cum_base.png" alt="cum_base"></p>
+<p><strong>Statistics</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/stats_base.png" alt="stats_base"></p>
+<p>For a description of each performance indicator, see <a href="#performance-measures">here</a>. The results are as follows:</p>
+<ul>
+<li><strong>Long-term: CAGR 9.1%, Volatility 7.8%, Sharpe 1.17</strong><br>
+During the backtesting period, <strong>CAGR was similar to that of the stock market</strong>, but the volatility was low, resulting in a <strong>very good Sharpe</strong> (about 2.5 times the stock market) compared to other assets.</li>
+<li><strong>Short-term: CAGR 7.5%, Volatility 6.8%, Sharpe 1.16</strong><br>
+On the other hand, when observing 1-year rolling windows, it was hard to see that GFAM was better than the stock market. The median value of 1-year rolling CAGR of the stock market was very high, and the volatility was very large as well.</li>
+<li><strong>MDD 14%</strong><br>
+MDD was low and similar to the bond market. On the other hand, MDD of the stock market was extremely high. During Lehman period, the stock market crashed nearly 60%. For reference, the various articles related to the dual momentum strategy (as well as Antonacci’s book) say, one of the biggest common usefulness of dual momentum is <strong>low MDD</strong>.</li>
+<li>The beta with the stock market was negative and slightly lower than the bond market.</li>
+<li><strong>1Y Loss probability</strong>(that is, the probability of loss when investing in GFAM for 1 year) was <strong>extremely low at about 3%</strong>. For reference, the probability of 1-year loss in the stock market exceeded 20%, and even the bond market was likely to lose close to 10%.</li>
+<li>The chart below shows the risk-return profile of all universe assets. The slope of the solid black line means Sharpe of GFAM (red). <strong>Sharpe of GFAM is higher than most assets in the universe</strong>.</li>
+</ul>
+<p><strong>Risk-return profile</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/profile_base.png" alt="profile_base"></p>
+<p>Then, what is the performance of GFAM for each year? The following chart shows the cumulative return of GFAM  by year (last business day of last year=1.0). In 2018, only the returns from January to March were shown.</p>
+<p><strong>Yearly cumulative returns</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/cum_yearly_all.png" alt="cum_yearly_all"></p>
+<p>GFAM’s performance has been somewhat overly favorable in some years (2003, 2008, 2009, 2011), so the performance of other years tends to be visually impaired (because the y-axis is the same scale). Let’s also look at the chart of cumulative returns for each year by removing those periods.</p>
+<p><strong>Yearly cumulative returns excluding 2003, 2008, 2009, 2011</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/cum_yearly_removed.png" alt="cum_yearly_removed"></p>
+<p>Now it seems more clear. Most of the years, except for 2007 and 2010, are outperforming the US Aggregate. The volatility is bigger than the bond market.</p>
+<p>What about the <strong>short-term (1 year) expected performance</strong> of investing in GFAM? Below we have extracted all of the 1-year performance for the above backtest period, and plotted the distribution.</p>
+<p><strong>1-Year Rolling Distributions</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/dist_base.png" alt="dist_base"></p>
+<ul>
+<li>The red vertical line means median value of each distribution. In the statistics above, CAGR (Rolling 1Y), Standard dev (Rolling 1Y), and Sharpe (Rolling 1Y) were used as representative values, respectively.</li>
+<li><strong>The area below CAGR=0 means loss potential in one year</strong>. As mentioned above, the loss probability of GFAM (red) for 1 year is very low, because it seems to have prevented the loss of the drop through the absolute momentum strategy.</li>
+<li>In the stock market (gray), it should be noted that even 1-year performances are very widely distributed. Looking at CAGR(Rolling 1Y) of the stock market, the median value is higher than other assets, but the probability of 1-year loss is also high because the tail is very long on the left. The same goes for the Standard dev(Rolling 1Y) of the stock market. There were also periods where the volatility was almost 50%.</li>
+<li>On the other hand, <strong>the distribution of GFAM is narrower</strong> (ie, higher in kurtosis) than other assets. This can be interpreted statistically as a high reliability of performance statistics.</li>
+</ul>
+<p>Let’s break down the performance of GFAM by asset. The chart on the left below shows <strong>the percentage of each asset’s average daily contribution when GFAM’s daily return is 100</strong>. The chart on the right represents the total number of months for which each asset is selected.</p>
+<p><strong>Performance breakdown</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/perf_breakdown.png" alt="perf_breakdown"></p>
+<ul>
+<li>The largest contributor to GFAM’s performance was <strong>TLT</strong>(US Treasury Long), followed by <strong>PFF</strong>(US Preferred Stock). On the other hand, losses have occurred in <strong>LQD</strong>(US Investment grade).</li>
+<li>The large contribution of <strong>TLT</strong> (average 20%) is supposed to have been largely due to <strong>the risky-asset exposure control based on the reinforcement strategy and high volatility</strong>.</li>
+<li>It does not mean that <strong>LQD</strong> has defeated 10% of GFAM’s total return. Since the total number of selected months was so small and there were slight losses during those periods, on average the loss contribution seems to be large.</li>
+<li>It is unlikely that there is a meaningful correlation between total investment period and performance contribution. However, it can be understood that the longer the total investment period, the higher the reliability of the relevant performance contribution value.</li>
+</ul>
+<br>
+<blockquote>
+<p><strong>NOTE</strong><br>
+If you take a closer look at the backtest results since 2003, there are quite a few gritty periods. They are 2008 and 2009. It can be argued that GFAM performance fluctuated significantly during those periods, eventually acting as a positive factor, which would have <strong>somewhat distorted the intrinsic performance of GFAM</strong>. Could it be true? Let’s check the performance after 2010.</p>
+<p><strong>Cumulative return since 2010</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/cum_since2010.png" alt="cum_since2010"></p>
+<p><strong>Statistics since 2010</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/stats_since2010.png" alt="stats_since2010"></p>
+<p><strong>GFAM(2003~) vs. GFAM(2010~)</strong><br>
+<img src="https://gem763.github.io/quanty/gfam/stats_compare_since2010.png" alt="stats_compare_since2010"></p>
+<ul>
+<li>Although CAGR and Sharpe were slightly lower, it was hard to say that it was inferior to the whole (2003 ~) backtest result. (but no statistical significance was verified)</li>
+<li>On the contrary, <strong>MDD has improved significantly</strong> and the <strong>probability of loss for 1 year has been reduced to less than 1%</strong>.</li>
+</ul>
+</blockquote>
+<h2 id="portfolio-history">Portfolio history</h2>
+<p>The chart below shows the change of portfolio for 40 months from 2015 to April 2018. <strong>TLT</strong>(US Treasury Long) was selected solely for 5 months, and <strong>AGG</strong>(US Aggregate, white), a Cash asset, was also selected solely for 5 months.</p>
+<p><img src="https://gem763.github.io/quanty/gfam/port_history.png" alt="port_history"></p>
+<p>The portfolio will not actually be constructed as such if only one asset is selected. There are many ETFs in the US stock market that follow similar underlying indices. For example, <strong>SPTL</strong> which is also US Treasury Long-term ETF such as <strong>TLT</strong>, is listed and the performance is almost the same.</p>
+<h2 id="drawback-high-turnover">Drawback: High turnover</h2>
+<p><strong>In general, Dual momentum strategy has a low turnover ratio</strong>. In Antonacci’s paper, he stated that the turnover ratio on average does not exceed 200%. It is true. But it is only true for the backtest he suggested. Most of his strategy was to pick one out of three or four assets, and the trend of high momentum assets was likely to continue for a while, so the turnover ratio had to be low.</p>
+<p>However, in this report, the <strong>turnover ratio is high because of the strategy of selecting multiple assets at once from a much broader investment universe</strong>. Based on the formula for calculating the turnover ratio of our company (= 12-month selling ratio), the turnover ratio of GFAM is calculated as shown in the chart below. On average, it is <strong>close to 600%</strong>. For reference, our company’s turnover ratio guideline for monthly-rebalancing-funds (such as QuantMP fund at Quant team) are around 500%.</p>
+<p><img src="https://gem763.github.io/quanty/gfam/turnover.png" alt="turnover"></p>
+<h1 id="conclusions">Conclusions</h1>
+<p>Global Fixed-Income Allocation Model (GFAM) have been designed based on Gary Antonacci’s dual momentum strategy. For institutional investors, a new Reinforcement strategy to set up a practical scheme and supplement the original dual momentum have been added. In the process, it is utilized the fact that highly volatile assets are relatively advantageous in the momentum space. More than 5 assets were appropriate to be selected.</p>
+<p>The followings are the expected results for GFAM:</p>
+<ul>
+<li><strong>Long-term: CAGR 7-9%, Volatility 7-8%, Sharpe 1.1-1.2</strong></li>
+<li><strong>Short-term: CAGR 7-8%, Volatility 7%, Sharpe 1.1-1.2</strong></li>
+<li><strong>MDD 7-15%</strong></li>
+<li><strong>1Y Loss probability 1-3%</strong><br>
+<br></li>
+</ul>
+<p>GFAM portfolio has the following characteristics:</p>
+<ul>
+<li>The contribution of US Treasury Long to performance is high.</li>
+<li>High turnover ratio</li>
+</ul>
+<h1 id="next-agenda">Next agenda</h1>
+<p>The following allocation models design is underway as a follow-up work.</p>
+<ul>
+<li>Global Equity Allocation by countries</li>
+<li>US Equity Sector Allocation</li>
+<li>US Equity Factor(Style) Allocation</li>
+<li>Commodity Allocation</li>
+<li>Currency Allocation</li>
+<li>Korea Equity Sector Allocation</li>
+<li>Korea Equity Factor(Style) Allocation</li>
+</ul>
+<h1 id="appendix">Appendix</h1>
+<h2 id="performance-measures">Performance measures</h2>
+<ul>
+<li><strong>CAGR</strong>: Compound Annual Growth Rate.</li>
+<li><strong>Standard deviation</strong>: Annual volatility.</li>
+<li><strong>Sharpe</strong>: Risk-adjusted return, that is, CAGR / Volatility.</li>
+<li><strong>CAGR Rolling 1Y</strong>: After extracting all of the total returns for the 1-year window in the entire backtest period, take the median of the values. Treat this as a proxy of CAGR expected in the short term.</li>
+<li><strong>Standard deviation Rolling 1Y</strong>: After extracting all of the volatilities for the 1-year window in the entire backtest period, take the median of the values. Treat this as a proxy of Volatility expected in the short term.</li>
+<li><strong>Sharpe Rolling 1Y</strong>: After extracting all of the sharpes for the 1-year window in the entire backtest period, take the median of the values. Treat this as a proxy of Sharpe expected in the short term. (Note: NOT CAGR Rolling 1Y / Standard deviation Rolling 1Y)</li>
+<li><strong>MDD</strong>: Maximum Drawdown.</li>
+<li><strong>Hit ratio</strong>: Percentage of the total number of months that the profit occurred.</li>
+<li><strong>Profit-to-loss</strong>: Average Profit/Loss ratio.</li>
+<li><strong>Beta</strong>: Price elasticity against Global equity market (MSCI All country)</li>
+<li><strong>Loss probability</strong>: Probability of loss after 1 year. Calculated as the area below CAGR=0 in the distribution of CAGR Rolling1Y.</li>
+<li><strong>Consistency</strong>: Persistence of performance. After regressing the cumulative return, take R-Square.</li>
+</ul>
+
+    </div>
+  </div>
+</body>
+
+</html>
