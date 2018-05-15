@@ -1,20 +1,10 @@
 import pandas as pd
 import numpy as np
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import seaborn as sns
+from .plotter import Plotter as pltr
+from .evaluator import Evaluator as ev
 from tqdm import tqdm
-from sklearn import linear_model
-from sklearn.metrics import r2_score
 from pandas.tseries.offsets import Day
 from IPython.core.debugger import set_trace
-from matplotlib.ticker import ScalarFormatter
-import matplotlib.dates as mdates
-
-sns.set_style('ticks')
-#mpl.rc('font', family='NanumGothic')
-mpl.rc('axes', unicode_minus=False)
-
 
 
 class Backtester(object):
@@ -58,16 +48,15 @@ class Backtester(object):
             self.p_buy = p_bet_low
             self.p_sell = p_bet_high
         
-        #set_trace()        
         self._run()
 
-        
+
     def _overwrite_params(self, base_params, **what):
         out = base_params.copy()
         out.update(what)
         return out
-        
-      
+
+
     # 모든 영업일 출력
     def _get_dates(self):
         dates_all = self.data.index.levels[0]
@@ -271,8 +260,8 @@ class Backtester(object):
             
             if len(ref_rtn)>=20:
                 if self.apply_kelly['method']=='semivariance':
-                    up = self._std_dir_by_r(ref_rtn, 1)/100
-                    down = self._std_dir_by_r(ref_rtn, -1)/100
+                    up = ev._std_dir_by_r(ref_rtn, 1)/100
+                    down = ev._std_dir_by_r(ref_rtn, -1)/100
                     fr_raw = ((up-down) / (2*up*down))
 
                     if not np.isnan(fr_raw): 
@@ -306,7 +295,6 @@ class Backtester(object):
     
     
     def _get_weights(self, sig, date):
-        #if date==pd.Timestamp('2016-07-29'): set_trace()
         pos, ranks = self._get_selection(sig, date)
         
         if self.w_type=='ew':
@@ -350,122 +338,6 @@ class Backtester(object):
             weight.loc[self.cash_equiv] = 1.0 - weight.sum()
         
         return weight, pos, ranks, kelly_output
-      
-      
-    # 종목별 CAGR
-    def _cagr(self, p):
-        return ((p[-1]/p[0])**(250/(len(p)-1)) - 1) * 100
-
-
-    # 종목별 변동성
-    def _std(self, p): 
-        return np.nanstd(p[1:]/p[:-1]-1) * (250**0.5) * 100
-
-
-    # 종목별 하방변동성
-    def _std_down(self, p):
-        r = p[1:]/p[:-1]-1
-        r = r[~np.isnan(r)]
-        r_neg = r[r<0]
-        return ((((r_neg**2).sum() / (len(r)-1))**0.5) * (250**0.5)) * 100
-
-      
-    def _std_dir_by_r(self, r, dir): 
-        #r = p[1:]/p[:-1]-1
-        #r = r[~np.isnan(r)]
-        if dir==1:
-            r_dir = r[r>0]
-        elif dir==-1:    
-            r_dir = r[r<0]
-        return ((((r_dir**2).sum() / (len(r)-1))**0.5) * (250**0.5)) * 100
-
-      
-    def _std_dir(self, p, dir): 
-        r = p[1:]/p[:-1]-1
-        r = r[~np.isnan(r)]
-        if dir==1:
-            r_dir = r[r>0]
-        elif dir==-1:    
-            r_dir = r[r<0]
-        return ((((r_dir**2).sum() / (len(r)-1))**0.5) * (250**0.5)) * 100      
-      
-
-    # 종목별 Sharpe
-    def _sharpe(self, p): 
-        return self._cagr(p)/self._std(p)
-
-    # 종목별 MDD
-    def _mdd(self, p):
-        return (p/np.maximum.accumulate(p)-1).min() * 100
-        
-  
-    # 종목별 수익안정성
-    def _consistency(self, p):
-        if len(p)==0:
-            return np.nan
-          
-        y = np.log(p)
-        X = np.arange(len(p)).reshape(-1,1)
-        model = linear_model.LinearRegression(fit_intercept=False).fit(X, y)
-        return r2_score(y, model.predict(X))
-  
-  
-    # 종목별 베타
-    def _beta(self, rtns):
-        if len(rtns)==0:
-            return np.nan
-          
-        y = rtns[:,0].reshape(-1,1)
-        X = rtns[:,1].reshape(-1,1)
-        model = linear_model.LinearRegression().fit(X, y)
-        return model.coef_[0,0]
-  
-  
-    def get_stats(self):
-        cum = self.cum
-        cum_last = cum.iloc[-1]
-        n_samples = cum.count()
-        
-        # Base stats: 전체구간
-        cagr = (cum_last**(250/(n_samples-1)) - 1) * 100
-        std = cum.pct_change().std() * (250**0.5) * 100
-        sharpe = cagr / std
-        #mdd = (cum.expanding().apply(lambda x: x[-1]/np.nanmax(x)-1).min()) * 100
-        mdd = (cum.div(cum.cummax()) - 1).min() * 100
-        #set_trace()
-        consistency = (pd.Series([self._consistency(cum[col].dropna()) for col in cum], index=cum.columns)) * 100
-        beta = pd.Series([self._beta(cum[[col, self.beta_to]].pct_change().dropna(how='any').values) for col in cum], index=cum.columns)
-
-        # Rolling stats
-        cum_roll = cum.rolling(self.n_roll_stats)
-        cagr_roll = cum_roll.apply(self._cagr)
-        cagr_roll_med = cagr_roll.median()
-        loss_proba = (cagr_roll<0).sum()/cagr_roll.count() * 100
-        std_roll_med = cum_roll.apply(self._std).median()
-        sharpe_roll_med = cum_roll.apply(self._sharpe).median()
-        #mdd_roll_med = cum_roll.apply(self._mdd).median()
-
-        # With 1M returns
-        r_month = cum.resample('M').ffill().pct_change()
-        hit = ((r_month>0).sum() / (r_month.count()-1)) * 100
-        profit_to_loss = - r_month[r_month>0].mean() / r_month[r_month<0].mean()
-        
-        return pd.DataFrame({
-            'cum_last': cum_last,
-            'n_samples': n_samples, 
-            'cagr': cagr, 
-            'std': std,
-            'sharpe': sharpe,
-            'mdd': mdd,
-            'cagr_roll_med': cagr_roll_med, 
-            'std_roll_med': std_roll_med, 
-            'sharpe_roll_med': sharpe_roll_med, 
-            'beta': beta, 
-            'loss_proba': loss_proba, 
-            'hit': hit,
-            'profit_to_loss': profit_to_loss,
-            'consistency': consistency,
-        }).round(2)
 
 
     def _run(self):
@@ -559,7 +431,7 @@ class Backtester(object):
         self.turnover = self._get_turnover()
         
         # 성과통계
-        self.stats = self.get_stats()
+        self.stats = ev.get_stats(self.cum, self.beta_to, self.n_roll_stats)
         
         
     def _get_turnover(self):
@@ -655,27 +527,26 @@ class Backtester(object):
         
         
     def plot_cum(self, strats, **params):
-        plot_cum(self.cum, strats, **params)
+        pltr.plot_cum(self.cum, strats, **params)
         
         
     def plot_cum_yearly(self, strats, **params): 
-        plot_cum_yearly(self.cum[strats], **params)
+        pltr.plot_cum_yearly(self.cum[strats], **params)
 
         
     def plot_turnover(self):
-        #plot_turnover(self.weight)
-        plot_turnover(self.turnover)
+        pltr.plot_turnover(self.turnover)
         
         
     def plot_weight(self, rng): 
-        plot_weight(self.weight, rng, self.riskfree, self.cash_equiv)
+        pltr.plot_weight(self.weight, rng, self.riskfree, self.cash_equiv)
         
         
     def plot_stats(self, strats, style=None, **params):
         if style is None:
             items = {
                 'cagr': 'CAGR(%)', 
-                'std': 'Standard dev(%)', #'연변동성(%)', 
+                'std': 'Standard dev(%)', 
                 'sharpe': 'Sharpe', 
                 'cagr_roll_med': 'CAGR(%,Rolling1Y)', 
                 'std_roll_med': 'Standard dev(%,Rolling1Y)', 
@@ -688,309 +559,36 @@ class Backtester(object):
                 'consistency': 'Consistency(%)',
             }
             
-            plot_stats(self.stats, strats, items, **params)
+            pltr.plot_stats(self.stats, strats, items, **params)
         
         elif style=='simple':
             items = {
                 'cagr': 'CAGR(%)', 
-                'std': 'Standard dev(%)', #'연변동성(%)', 
+                'std': 'Standard dev(%)', 
                 'sharpe': 'Sharpe', 
                 'mdd': 'MDD(%)', 
             }          
         
-            plot_stats(self.stats, strats, items, ncols=4, **params)
+            pltr.plot_stats(self.stats, strats, items, ncols=4, **params)
         
         
     def plot_profile(self, strats, **params):
-        plot_profile(self.stats, strats, **params)
+        pltr.plot_profile(self.stats, strats, **params)
         
         
     def plot_dist(self, strats, **params):
         items = {
-            self._cagr: 'CAGR(%,Rolling1Y)', 
-            self._std: 'Standard dev(%,Rolling1Y)',
-            self._sharpe: 'Sharpe(Rolling1Y)', 
+            ev._cagr: 'CAGR(%,Rolling1Y)', 
+            ev._std: 'Standard dev(%,Rolling1Y)',
+            ev._sharpe: 'Sharpe(Rolling1Y)', 
         }
         
-        plot_dist(self.cum, strats, items, **params)
+        pltr.plot_dist(self.cum, strats, items, **params)
         
         
     def plot_contr_cum(self, **params):
-        plot_contr_cum(self.model_contr, **params)
+        pltr.plot_contr_cum(self.model_contr, **params)
         
         
     def plot_breakdown(self):
-        plot_breakdown(self.model_contr, self.weight)
-        
-        
-        
-        
-def plot_contr_cum(contr, assets=None):
-    if assets is None:
-        contr_cum = contr.add(1, fill_value=0).cumprod()
-    else: 
-        contr_cum = contr[assets].add(1, fill_value=0).cumprod()
-
-    contr_cum.plot(figsize=(20,10))
-        
-
-def plot_cum(prices, strats, names=None, color=None, style=None, logy=True):
-    #plt.figure()
-    
-    prices_ = prices[strats]
-    ax = prices_.plot(
-        figsize=(7,5), 
-        logy=logy, color=color, style=style, 
-        xlim=(prices_.index[0], prices_.index[-1]), 
-    )
-
-    ax.yaxis.set_major_formatter(ScalarFormatter())
-    ax.set_xlabel('')
-    
-    legend_fsize = 12
-    if names: ax.legend(names, fontsize=legend_fsize)
-    else: ax.legend(fontsize=legend_fsize)
-        
-
-def plot_cum_yearly(cum, names=None, color=None, style=None, remove=[]):
-    years = cum.index.year.unique()
-    eoy = None
-    cum_list = []
-
-    for iyear, year in enumerate(years):
-        cum_ = cum.loc[eoy:str(year)]
-
-        if (len(cum_)>1) and (year not in remove):
-            cum_ /= cum_.iloc[0]
-            cum_list.append((year, cum_))
-
-        eoy = cum_.index[-1]
-
-
-    nFig = len(cum_list)
-    nWidth = 5
-    nHeight = int(np.ceil(float(nFig)/nWidth))
-    fSize = 2.5
-
-    fig, axes = plt.subplots(nHeight, nWidth, sharey=True, figsize=(fSize*nWidth, fSize*nHeight))
-    axes = axes.flatten()
-    plt.subplots_adjust(hspace=0.6)
-    [ax.axis('off') for ax in axes]
-
-    for i, (year, cum_) in enumerate(cum_list):
-        ax = axes[i]
-        ax.axis('on')
-        cum_.plot(ax=ax, legend=False, xticks=cum_.index[::60], color=color, style=style, xlim=(cum_.index[0],cum_.index[-1]))
-        ax.set_title(year, fontsize=15, weight='bold')
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m'))
-
-    if names is None:
-        names = strats
-        
-    axes[0].legend(names, bbox_to_anchor=(0, 1.2, nWidth, 0), ncol=len(strats), loc=3);
-    
-    
-def plot_turnover(turnover):    
-#def plot_turnover(weights):
-#     turnover = pd.Series()
-
-#     for idt, dt in enumerate(weights.index):
-#         if idt!=0:
-#             turnover[dt] = weights.iloc[idt].sub(weights.iloc[idt-1], fill_value=0).abs().sum()/2  
-      
-#     turnover_12m = turnover.rolling(12).sum().dropna()
-
-#     turnover_avg = turnover.mean()
-    ax = turnover.plot(ylim=(0,10), color='k', xlim=(turnover.index[0], turnover.index[-1]))
-    ax.set_title('Turnover ratio (12M)', fontsize=15, weight='bold')
-    ax.axhline(turnover.mean(), color='k', linestyle='--', linewidth=1);
-      
-
-def plot_breakdown(model_contr, weight):
-    contr = model_contr.mean()
-    contr /= contr.sum()
-    p_break = pd.DataFrame()
-    p_break['contr'] = contr*100
-    p_break['n_month'] = (weight!=0).sum()
-    p_break = p_break.sort_values(by=['contr'])
-
-    ax = p_break.plot.barh(
-            subplots=True, legend=False, sharex=False, sharey=True, width=0.8,
-            figsize=(7, len(p_break)/3.0), 
-            layout=(1, 2), 
-            #color=('k', 'k'), 
-            edgecolor='k', 
-            lw=1, 
-    )
-
-    ax[0,0].set_title('Contribution (Total=100)', fontsize=15, weight='bold')
-    ax[0,1].set_title('# of months', fontsize=15, weight='bold')
-    ax[0,0].axvline(0, color='k', linestyle='-', linewidth=1)  
-      
-
-def plot_weight(weight, rng, riskfree, cash_equiv):
-    weight_ = weight.copy().drop([cash_equiv], axis=1)
-    weight_i = weight_.index + 5*Day()
-    weight_.index = weight_i
-    weight_ = weight_[str(rng[0]):str(rng[1])]
-    weight_.index = weight_.index.strftime('%Y-%m')
-    
-    weight__ = []
-    for dt in weight_.index:
-        has_weight = weight_.loc[dt].abs() > 0.001
-        weight__.append(weight_.loc[dt][has_weight])
-    
-    weight__ = pd.DataFrame(weight__)
-    cols = list(weight__.columns)
-    cols.remove(riskfree)
-    cols = [riskfree] + cols
-    weight__ = weight__[cols]
-
-    bar_w = 0.8
-    fig_h = len(weight__)/3.0
-    ax = weight__.plot.barh(stacked=True, figsize=(10,fig_h), colormap='tab20c', width=bar_w, xlim=(0,1))
-    ax.legend(loc=1, bbox_to_anchor=(1.25, 1));
-    
-      
-
-def plot_stats(stats, strats, items, names=None, color=None, lim=None, ncols=3):
-    #plt.figure()
-        
-    height_strats = 0.6 # 전략별 bar 높이
-    n_items = len(items)
-    n_cols = ncols
-    n_rows = int(np.ceil(n_items/float(n_cols)))
-    fig_width = ncols * 8.0/3.0 #8
-      
-    stats_ = stats.loc[strats, items.keys()]#.copy()
-    if names: stats_.index = names
-    if color: color = [color] * n_items
-      
-    ax = stats_.plot.barh(
-        subplots=True, legend=False, sharex=False, sharey=True, width=0.8,
-        figsize=(fig_width, height_strats*len(strats)*n_rows), 
-        layout=(n_rows, n_cols), 
-        title=items.values(), 
-        color=color, 
-        edgecolor='k', 
-        lw=1,
-        #xerr=err_value, 
-    )
-    
-    for i, ax_ in enumerate(ax.flatten()):
-        if lim: ax_.set_xlim(lim[i])
-        ax_.axvline(0, color='k', linestyle='-', linewidth=1)
-    
-    plt.subplots_adjust(hspace=1.5)#0.7)
-    
-    
-def plot_profile(stats, strats, names=None, color=None, bsize=None):
-    #plt.figure()
-    
-    cagr = stats['cagr']
-    std = stats['std']
-
-    # 차트범위 최대값
-    lim = np.ceil(max(cagr.max(), std.max()) * 1.1 / 5) * 5
-
-    # 듀얼모멘텀을 지나는 직선들
-    x0, y0 = std[strats], cagr[strats]
-    slope = y0 / x0
-    X_ = np.linspace(0, lim, 100)
-    Y_ = slope.values * X_.reshape(-1,1)
-    ax = pd.DataFrame(Y_, index=X_).plot(zorder=-1, style='k-', legend=False)
-        
-    # 위험조정수익률=1 인 직선
-    pd.Series(X_, index=X_).plot(zorder=-1, style='k--', legend=False, ax=ax)
-
-    # color 설정
-    i_strats = stats.index.get_indexer(strats)
-    c_ = np.full(len(std), None)
-    c_[:] = 'k'
-    if color: c_[i_strats] = color
-
-    # 버블 사이즈 설정
-    s_ = np.full(len(std), None)
-    s_[:] = 100
-    if bsize: s_[i_strats] = bsize
-    
-    # 라벨 설정
-    labels = stats.index.values.copy() # copy안하면 원래 index가 바뀌어버린다
-    if names: labels[i_strats] = names
-
-    # Scatter plot
-    stats.plot.scatter(
-        x='std', y='cagr', ax=ax, edgecolor='k', 
-        xlim=(0,lim), ylim=(0,lim), figsize=(7,7), 
-        s=s_.tolist(), 
-        c=c_.tolist(), 
-        lw=1,
-    )
-
-    # Annotation
-    for label, x, y in zip(labels, std, cagr):
-        ax.annotate(
-            label, 
-            xy=(x,y), 
-            xytext=(5,5),
-            textcoords='offset points', 
-            ha='left', #'right', 
-            va='bottom',
-            bbox=dict(facecolor='w', alpha=0.8, lw=1), 
-            size=12,
-        )
-
-    ax.set_xlabel('Standard deviation(%)', size=15) # 연변동성
-    ax.set_ylabel('CAGR%)', size=15)
-    
-    
-def plot_dist(prices, strats, items, n_roll_stats=250, names=None, color=None):
-    #plt.figure()
-    
-    height_strats = 1.5
-    prices_ = prices[strats]#.copy()
-    if names: prices_.columns = names
-
-    fig, axes = plt.subplots(len(strats), len(items), figsize=(11,height_strats*len(strats)))
-    prices_rolled = prices_.rolling(n_roll_stats)
-
-    for i, (item_, label_) in enumerate(items.items()):
-        collected = prices_rolled.apply(item_)
-        med = collected.median()
-        legend = True if i==0 else False
-
-        ax = collected.plot.hist(
-            bins=50, edgecolor='k', subplots=True, 
-            sharex=True, histtype='stepfilled', 
-            color=color, 
-            ax=axes[:,i], 
-            legend=legend, 
-            lw=1,
-        )
-
-        for j, ax_ in enumerate(ax):
-            ax_.axvline(0, color='k', linestyle='--', linewidth=1)
-            ax_.axvline(med[j], color='r', linewidth=5, alpha=0.5)
-            ax_.set_ylabel('')
-
-        ax[-1].set_xlabel(label_, size=15)
-        
-        
-def plot_stats_pool(stats_pool, items, names=None, lim=None):
-    stats_pool_ = stats_pool.loc[:,items.keys()]#.sort_index()
-    if names: stats_pool_.index = names
-    
-    f_height = 1.5
-    ax = stats_pool_.plot.bar(
-        subplots=True, sharex=True, sharey=False, legend=False, 
-        width=0.8, color='k', 
-        layout=(len(items),1), 
-        figsize=(5,f_height*len(items)), 
-        title=items.values(), 
-    )
-    
-    for i, ax_ in enumerate(ax): 
-        if lim: ax[i,0].set_ylim(lim[i])
-        #ax[i,0].set_title(fontsize=15, weight='bold')
-
-    plt.subplots_adjust(hspace=0.5)        
+        pltr.plot_breakdown(self.model_contr, self.weight)
