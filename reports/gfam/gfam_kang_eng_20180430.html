@@ -63,7 +63,7 @@ Overseas investment div.<br>
 <h1 id="overview">Overview</h1>
 <p><strong>Global Fixed-income Allocation Model</strong> was designed using the global bond ETFs listed in the US. Gary Antonacci’s dual momentum strategy was adopted as a basic framework, but another strategy called Reinforcement was added to create a more practical model for institutional investors. Selecting more than 5 assets in the universe was most appropriate in terms of Sharpe.</p>
 <p><strong>GFAM Cumulative return</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/cum_base.png" alt="cum_base"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/cum_base.png" alt="cum_base"></p>
 <p>Expected performance:</p>
 <ul>
 <li><strong>Long-term: CAGR 7-9%, Volatility 7-8%, Sharpe 1.1-1.2</strong></li>
@@ -97,13 +97,13 @@ Strategy to intensively invest in assets with relatively high momentum by compar
 <p><strong>NOTE</strong><br>
 There are various opinions on why the momentum strategy works, and the best known is the <strong>Herding effect</strong>, which is a representative anomaly of Behavioral finance.</p>
 <center><i>Herding effect</i></center>
-<center><img src="https://gem763.github.io/quanty/gfam/herding.jpg" alt="herding"></center>
+<center><img src="https://gem763.github.io/quanty/reports/gfam/herding.jpg" alt="herding"></center>
 <p>According to this, winner in the past periods is likely to be a winner for a while (Relative momentum). In a similar vein, it is unlikely that the rising price of an asset will suddenly fall. Even if there is a significant change in the current value of a rising asset, the Herding effect is a friction on the deprecation of the asset. This provides a good chance to move to cash asset at the beginning of the downturn. Note that the <strong>Herding effect is known to work much better at ASSET CLASS</strong> than individual stocks.</p>
 </blockquote>
 <h1 id="objectives">Objectives</h1>
 <p>Antonacci’s paper describes his application of the dual momentum strategy to the fixed-income universe, and the results are fairly good. The following are some of the results published in his paper.</p>
-<p><img src="https://gem763.github.io/quanty/gfam/stats_antonacci.PNG" alt="stats_antonacci"></p>
-<p><img src="https://gem763.github.io/quanty/gfam/cum_antonacci.PNG" alt="cum_antonacci"></p>
+<p><img src="https://gem763.github.io/quanty/reports/gfam/stats_antonacci.PNG" alt="stats_antonacci"></p>
+<p><img src="https://gem763.github.io/quanty/reports/gfam/cum_antonacci.PNG" alt="cum_antonacci"></p>
 <p>To summarize the results briefly,</p>
 <ul>
 <li>Universe: <strong>US High yield</strong>(Bank of America Merrill Lynch U.S. Cash Pay High Yield Index), <strong>US Credit bond</strong>(Barclays Capital Aggregate Bond Index)</li>
@@ -428,8 +428,8 @@ Therefore, in light of the above problems, we set the following points in the re
 <h1 id="backtest">Backtest</h1>
 <h2 id="absolute-vs.-relative-vs.-dual-momentum">Absolute vs. Relative vs. Dual momentum</h2>
 <p>For <strong>N=1</strong>, let us compare the performance of the two strategies that make up the dual momentum: absolute momentum and relative momentum. Below is the cumulative returns chart for each strategy. Reinforcement strategies have not yet been applied.</p>
-<p><img src="https://gem763.github.io/quanty/gfam/cum_compare_mode.png" alt="cum_compare_mode"></p>
-<p><img src="https://gem763.github.io/quanty/gfam/stats_compare_mode.png" alt="stats_compare_mode"></p>
+<p><img src="https://gem763.github.io/quanty/reports/gfam/cum_compare_mode.png" alt="cum_compare_mode"></p>
+<p><img src="https://gem763.github.io/quanty/reports/gfam/stats_compare_mode.png" alt="stats_compare_mode"></p>
 <ul>
 <li><strong>Absolute</strong> momentum strategy (blue) shows relatively stable performance because it moves to cash if the market is on downturn. But CAGR is the smallest.</li>
 <li><strong>Relative</strong> momentum strategy (orange) is highly volatile depending on the market situation, but relatively high returns are expected.</li>
@@ -439,7 +439,7 @@ Therefore, in light of the above problems, we set the following points in the re
 </ul>
 <h2 id="calibration">Calibration</h2>
 <p>Measured the performance of the dual momentum strategy as changing <strong>N</strong> from 1 to 10.</p>
-<p><img src="https://gem763.github.io/quanty/gfam/stats_npicks_1_10.png" alt="stats_npicks_1_10"></p>
+<p><img src="https://gem763.github.io/quanty/reports/gfam/stats_npicks_1_10.png" alt="stats_npicks_1_10"></p>
 <ul>
 <li>The larger the <strong>N</strong>, the lower the CAGR.</li>
 <li>However, volatility and MDD are tend to be much smaller.</li>
@@ -447,10 +447,10 @@ Therefore, in light of the above problems, we set the following points in the re
 <li>For reference, there are some articles claiming that the reasonable number of selection is 20-30% of the number of universe assets in case the universe is large like this report. Since the number of our universe assets is 24 in total, the appropriate selection could be <strong>N=5~7</strong>.</li>
 <li>Choosing only one asset may be a good choice in terms of total returns, but the stability is very poor. In the following chart, we can see that the cumulative return is stably saturated at around <strong>N=5</strong>.</li>
 </ul>
-<p><img src="https://gem763.github.io/quanty/gfam/cum_npicks_1_5.png" alt="cum_npicks_1_5"></p>
+<p><img src="https://gem763.github.io/quanty/reports/gfam/cum_npicks_1_5.png" alt="cum_npicks_1_5"></p>
 <h2 id="reinforcement">Reinforcement</h2>
 <p>Let us apply Reinforcement strategy to the dual momentum for <strong>N=5</strong>. If the number of assets selected by the dual momentum strategy is insufficient, the determination is made as to whether or not to increase the weight of the relatively-risky US Treasury Long.</p>
-<p><img src="https://gem763.github.io/quanty/gfam/cum_compare_reinforce.png" alt="cum_compare_reinforce"></p>
+<p><img src="https://gem763.github.io/quanty/reports/gfam/cum_compare_reinforce.png" alt="cum_compare_reinforce"></p>
 <ul>
 <li>Dual momentum strategy only (blue): CAGR similar to US High yield (orange) and relatively low volatility are observed. This is the same result as the Antonacci’s paper.</li>
 <li><strong>Dual momentum + Reinforcement</strong> (red): As a result of increasing the exposures of relatively-risky assets, <strong>better results were obtained compared with those applied only to dual momentum</strong>. The volatility becomes larger instead.</li>
@@ -458,9 +458,9 @@ Therefore, in light of the above problems, we set the following points in the re
 <h2 id="evaluation">Evaluation</h2>
 <p>Now, let’s call the strategy which processes according to the above trading rule (= Dual momentum + Reinforcement) as <strong>GFAM</strong> (Global Fixed-income Allocation Model). And let’s measure the performance of GFAM for <strong>N=5</strong>. ACWI (MSCI All country), AGG (US Aggregate), and HYG (US High yield) are added for reference.</p>
 <p><strong>Cumulative return</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/cum_base.png" alt="cum_base"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/cum_base.png" alt="cum_base"></p>
 <p><strong>Statistics</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/stats_base.png" alt="stats_base"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/stats_base.png" alt="stats_base"></p>
 <p>For a description of each performance indicator, see <a href="#performance-measures">here</a>. The results are as follows:</p>
 <ul>
 <li><strong>Long-term: CAGR 9.1%, Volatility 7.8%, Sharpe 1.17</strong><br>
@@ -474,17 +474,17 @@ MDD was low and similar to the bond market. On the other hand, MDD of the stock 
 <li>The chart below shows the risk-return profile of all universe assets. The slope of the solid black line means Sharpe of GFAM (red). <strong>Sharpe of GFAM is higher than most assets in the universe</strong>.</li>
 </ul>
 <p><strong>Risk-return profile</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/profile_base.png" alt="profile_base"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/profile_base.png" alt="profile_base"></p>
 <p>Then, what is the performance of GFAM for each year? The following chart shows the cumulative return of GFAM  by year (last business day of last year=1.0). In 2018, only the returns from January to March were shown.</p>
 <p><strong>Yearly cumulative returns</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/cum_yearly_all.png" alt="cum_yearly_all"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/cum_yearly_all.png" alt="cum_yearly_all"></p>
 <p>GFAM’s performance has been somewhat overly favorable in some years (2003, 2008, 2009, 2011), so the performance of other years tends to be visually impaired (because the y-axis is the same scale). Let’s also look at the chart of cumulative returns for each year by removing those periods.</p>
 <p><strong>Yearly cumulative returns excluding 2003, 2008, 2009, 2011</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/cum_yearly_removed.png" alt="cum_yearly_removed"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/cum_yearly_removed.png" alt="cum_yearly_removed"></p>
 <p>Now it seems more clear. Most of the years, except for 2007 and 2010, are outperforming the US Aggregate. The volatility is bigger than the bond market.</p>
 <p>What about the <strong>short-term (1 year) expected performance</strong> of investing in GFAM? Below we have extracted all of the 1-year performance for the above backtest period, and plotted the distribution.</p>
 <p><strong>1-Year Rolling Distributions</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/dist_base.png" alt="dist_base"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/dist_base.png" alt="dist_base"></p>
 <ul>
 <li>The red vertical line means median value of each distribution. In the statistics above, CAGR (Rolling 1Y), Standard dev (Rolling 1Y), and Sharpe (Rolling 1Y) were used as representative values, respectively.</li>
 <li><strong>The area below CAGR=0 means loss potential in one year</strong>. As mentioned above, the loss probability of GFAM (red) for 1 year is very low, because it seems to have prevented the loss of the drop through the absolute momentum strategy.</li>
@@ -493,7 +493,7 @@ MDD was low and similar to the bond market. On the other hand, MDD of the stock 
 </ul>
 <p>Let’s break down the performance of GFAM by asset. The chart on the left below shows <strong>the percentage of each asset’s average daily contribution when GFAM’s daily return is 100</strong>. The chart on the right represents the total number of months for which each asset is selected.</p>
 <p><strong>Performance breakdown</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/perf_breakdown.png" alt="perf_breakdown"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/perf_breakdown.png" alt="perf_breakdown"></p>
 <ul>
 <li>The largest contributor to GFAM’s performance was <strong>TLT</strong>(US Treasury Long), followed by <strong>PFF</strong>(US Preferred Stock). On the other hand, losses have occurred in <strong>LQD</strong>(US Investment grade).</li>
 <li>The large contribution of <strong>TLT</strong> (average 20%) is supposed to have been largely due to <strong>the risky-asset exposure control based on the reinforcement strategy and high volatility</strong>.</li>
@@ -505,11 +505,11 @@ MDD was low and similar to the bond market. On the other hand, MDD of the stock 
 <p><strong>NOTE</strong><br>
 If you take a closer look at the backtest results since 2003, there are quite a few gritty periods. They are 2008 and 2009. It can be argued that GFAM performance fluctuated significantly during those periods, eventually acting as a positive factor, which would have <strong>somewhat distorted the intrinsic performance of GFAM</strong>. Could it be true? Let’s check the performance after 2010.</p>
 <p><strong>Cumulative return since 2010</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/cum_since2010.png" alt="cum_since2010"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/cum_since2010.png" alt="cum_since2010"></p>
 <p><strong>Statistics since 2010</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/stats_since2010.png" alt="stats_since2010"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/stats_since2010.png" alt="stats_since2010"></p>
 <p><strong>GFAM(2003~) vs. GFAM(2010~)</strong><br>
-<img src="https://gem763.github.io/quanty/gfam/stats_compare_since2010.png" alt="stats_compare_since2010"></p>
+<img src="https://gem763.github.io/quanty/reports/gfam/stats_compare_since2010.png" alt="stats_compare_since2010"></p>
 <ul>
 <li>Although CAGR and Sharpe were slightly lower, it was hard to say that it was inferior to the whole (2003 ~) backtest result. (but no statistical significance was verified)</li>
 <li>On the contrary, <strong>MDD has improved significantly</strong> and the <strong>probability of loss for 1 year has been reduced to less than 1%</strong>.</li>
@@ -517,12 +517,12 @@ If you take a closer look at the backtest results since 2003, there are quite a 
 </blockquote>
 <h2 id="portfolio-history">Portfolio history</h2>
 <p>The chart below shows the change of portfolio for 40 months from 2015 to April 2018. <strong>TLT</strong>(US Treasury Long) was selected solely for 5 months, and <strong>AGG</strong>(US Aggregate, white), a Cash asset, was also selected solely for 5 months.</p>
-<p><img src="https://gem763.github.io/quanty/gfam/port_history.png" alt="port_history"></p>
+<p><img src="https://gem763.github.io/quanty/reports/gfam/port_history.png" alt="port_history"></p>
 <p>The portfolio will not actually be constructed as such if only one asset is selected. There are many ETFs in the US stock market that follow similar underlying indices. For example, <strong>SPTL</strong> which is also US Treasury Long-term ETF such as <strong>TLT</strong>, is listed and the performance is almost the same.</p>
 <h2 id="drawback-high-turnover">Drawback: High turnover</h2>
 <p><strong>In general, Dual momentum strategy has a low turnover ratio</strong>. In Antonacci’s paper, he stated that the turnover ratio on average does not exceed 200%. It is true. But it is only true for the backtest he suggested. Most of his strategy was to pick one out of three or four assets, and the trend of high momentum assets was likely to continue for a while, so the turnover ratio had to be low.</p>
 <p>However, in this report, the <strong>turnover ratio is high because of the strategy of selecting multiple assets at once from a much broader investment universe</strong>. Based on the formula for calculating the turnover ratio of our company (= 12-month selling ratio), the turnover ratio of GFAM is calculated as shown in the chart below. On average, it is <strong>close to 600%</strong>. For reference, our company’s turnover ratio guideline for monthly-rebalancing-funds (such as QuantMP fund at Quant team) are around 500%.</p>
-<p><img src="https://gem763.github.io/quanty/gfam/turnover.png" alt="turnover"></p>
+<p><img src="https://gem763.github.io/quanty/reports/gfam/turnover.png" alt="turnover"></p>
 <h1 id="conclusions">Conclusions</h1>
 <p>Global Fixed-Income Allocation Model (GFAM) have been designed based on Gary Antonacci’s dual momentum strategy. For institutional investors, a new Reinforcement strategy to set up a practical scheme and supplement the original dual momentum have been added. In the process, it is utilized the fact that highly volatile assets are relatively advantageous in the momentum space. More than 5 assets were appropriate to be selected.</p>
 <p>The followings are the expected results for GFAM:</p>
