@@ -160,7 +160,7 @@ class Plotter(object):
             if lim: ax_.set_xlim(lim[i])
             ax_.axvline(0, color='k', linestyle='-', linewidth=1)
 
-        plt.subplots_adjust(hspace=1.5)#0.7)
+        plt.subplots_adjust(hspace=0.7)#1.5)
 
 
     @classmethod
