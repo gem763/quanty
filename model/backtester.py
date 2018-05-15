@@ -625,7 +625,7 @@ class BacktestComparator(Backtester):
             'mdd': 'MDD(%)',
         }
         
-        plot_stats_pool(self.stats.loc[self.backtests.keys()], items, **params)
+        pltr.plot_stats_pool(self.stats.loc[self.backtests.keys()], items, **params)
         
                 
     @classmethod
@@ -650,7 +650,7 @@ class BacktestComparator(Backtester):
       
 
     def plot_cum_highlow(self, strats, **params):
-        plot_cum(self.cum, strats, **params)
+        pltr.plot_cum(self.cum, strats, **params)
         plt.fill_between(self.cum.index, 
                          self.cum["bt(trading_tolerance='buyHigh_sellLow')"], 
                          self.cum["bt(trading_tolerance='buyLow_sellHigh')"], 
