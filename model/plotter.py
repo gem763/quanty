@@ -74,9 +74,9 @@ class Plotter(object):
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%m'))
 
         if names is None:
-            names = strats
+            names = cum.columns #strats
 
-        axes[0].legend(names, bbox_to_anchor=(0, 1.2, nWidth, 0), ncol=len(strats), loc=3);
+        axes[0].legend(names, bbox_to_anchor=(0, 1.2, nWidth, 0), ncol=len(names), loc=3);
 
 
     @classmethod
