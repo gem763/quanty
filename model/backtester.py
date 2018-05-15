@@ -5,6 +5,9 @@ from .evaluator import Evaluator as ev
 from tqdm import tqdm
 from pandas.tseries.offsets import Day
 from IPython.core.debugger import set_trace
+#import re
+import itertools
+from collections import namedtuple, OrderedDict
 
 
 class Backtester(object):
@@ -203,11 +206,6 @@ class Backtester(object):
                 
           
         pos.loc[self.riskfree] += pos_rf  
-        
-#         pos_cash = 0
-#         if self._is_tradable(date, self.cash_equiv):
-#            pos_cash = self.n_picks - pos.sum()
-
         pos.loc[self.cash_equiv] += pos_cash
         return pos, ranks  
         
@@ -592,3 +590,69 @@ class Backtester(object):
         
     def plot_breakdown(self):
         pltr.plot_breakdown(self.model_contr, self.weight)
+
+
+
+class BacktestComparator(Backtester):
+
+    def __init__(self, params, **backtests):
+        self.__dict__.update(params)
+        self.backtests = OrderedDict(backtests)
+        self.cum, self.stats = self._get_results()
+
+
+    def _get_results(self):
+        for i, (k,v) in enumerate(self.backtests.items()):
+            if i==0:
+                cum = v.cum.copy()
+                cum.rename(columns={'DualMomentum':k}, inplace=True)
+              
+                stats = v.stats.copy()
+                stats.rename(index={'DualMomentum':k}, inplace=True)
+                
+            else:
+                cum.loc[:,k] = v.cum.loc[:,'DualMomentum']
+                stats.loc[k] = v.stats.loc['DualMomentum']
+                
+        return cum, stats
+        
+    
+    def plot_stats_pool(self, **params):
+        items = {
+            'cagr': 'CAGR(%)', 
+            'std': 'Standard dev(%)', 
+            'sharpe': 'Sharpe', 
+            'mdd': 'MDD(%)',
+        }
+        
+        plot_stats_pool(self.stats.loc[self.backtests.keys()], items, **params)
+        
+                
+    @classmethod
+    def compare(cls, base_params, **grids):
+        params = base_params.copy()
+        grid_keys = grids.keys()
+        grid_values = list(itertools.product(*grids.values()))
+        backtests = OrderedDict()
+        bt = namedtuple('bt', grid_keys)
+        
+        for v in tqdm(grid_values):
+            k = dict(zip(grid_keys, v))
+            params.update(k)
+            backtests[str(bt(**k))] = Backtester(params)
+         
+        return cls(params, **backtests)
+      
+      
+    @classmethod
+    def compare_highlow(cls, params):
+        return cls.compare(params, trading_tolerance=['buyLow_sellHigh', 'at_close', 'buyHigh_sellLow'])
+      
+
+    def plot_cum_highlow(self, strats, **params):
+        plot_cum(self.cum, strats, **params)
+        plt.fill_between(self.cum.index, 
+                         self.cum["bt(trading_tolerance='buyHigh_sellLow')"], 
+                         self.cum["bt(trading_tolerance='buyLow_sellHigh')"], 
+                         color=params['color'][-1], 
+                         alpha=0.4)
