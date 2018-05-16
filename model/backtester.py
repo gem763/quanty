@@ -1,12 +1,13 @@
 import pandas as pd
 import numpy as np
+import itertools
+import time
 from .plotter import Plotter as pltr
-from .evaluator import Evaluator as ev
+#from .evaluator import * #Evaluator as ev
+from ..model import evaluator as ev
 from tqdm import tqdm
 from pandas.tseries.offsets import Day
 from IPython.core.debugger import set_trace
-#import re
-import itertools
 from collections import namedtuple, OrderedDict
 
 
@@ -50,7 +51,7 @@ class Backtester(object):
             self.p_close = p_bet
             self.p_buy = p_bet_low
             self.p_sell = p_bet_high
-        
+ 
         self._run()
 
 
@@ -356,6 +357,7 @@ class Backtester(object):
         self.weight = []  # 최종비중 (켈리반영)
         self.kelly = []
         
+        #st=time.time()
         for date in self.dates:
             if date in self.p.index: 
                 trade_due -= 1
@@ -404,7 +406,9 @@ class Backtester(object):
             self.model_rtn.append(model_rtn_)
             self.model_contr.append(model_contr_)
 
-            
+        #print(time.time()-st)
+        #st=time.time()
+        
         # 종목별 시그널, 포지션
         self.sig = pd.DataFrame(self.sig, index=self.dates_asof)
         self.ranks = pd.DataFrame(self.ranks, index=self.dates_asof)
@@ -428,8 +432,13 @@ class Backtester(object):
         # Turnover
         self.turnover = self._get_turnover()
         
+        #print(time.time()-st)
+        #st=time.time()
+        
         # 성과통계
-        self.stats = ev.get_stats(self.cum, self.beta_to, self.n_roll_stats)
+        self.stats = ev._stats(self.cum, self.beta_to, self.n_roll_stats)
+        
+        #print(time.time()-st)
         
         
     def _get_turnover(self):
