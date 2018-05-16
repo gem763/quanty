@@ -5,6 +5,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.ticker import ScalarFormatter
+from pandas.tseries.offsets import Day
 
 sns.set_style('ticks')
 #mpl.rc('font', family='NanumGothic')
@@ -220,7 +221,7 @@ class Plotter(object):
             )
 
         ax.set_xlabel('Standard deviation(%)', size=15) # 연변동성
-        ax.set_ylabel('CAGR%)', size=15)
+        ax.set_ylabel('CAGR(%)', size=15)
 
 
     @classmethod
