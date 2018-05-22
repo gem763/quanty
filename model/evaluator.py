@@ -54,7 +54,11 @@ def _std_dir(p, dir_):
 # 종목별 Sharpe
 @jit(float64(float64[:]), nopython=True)
 def _sharpe(p): 
-    return _cagr(p)/_std(p)
+    std = _std(p)
+    if std==0:
+        return np.nan
+    else:
+        return _cagr(p)/std
 
 
 # 종목별 MDD
