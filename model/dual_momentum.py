@@ -26,6 +26,12 @@ class DualMomentum(object):
         #apply_kelly
         
         self.__dict__.update(**params)
+
+
+    def get(self, date, wealth, model_rtn):
+        sig_ = self._signal(date)
+        weight_, pos_, ranks_, kelly_output = self._weights(sig_, date, wealth, model_rtn)
+        return weight_, pos_, ranks_, kelly_output, sig_
     
     
     def _signal(self, date):
