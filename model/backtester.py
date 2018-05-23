@@ -8,7 +8,7 @@ from collections import namedtuple, OrderedDict
 from numba import jit, float64, types
 from tqdm import tqdm
 
-# Custom moduls
+# Custom modules
 from .plotter import Plotter as pltr
 from .dual_momentum import DualMomentum as dm
 from ..model import evaluator as ev
@@ -29,44 +29,45 @@ def _update_pos_daily_fast(pos_daily_last_np, r):
 
 
 class BacktesterBase(object):
-    
     def __init__(self, params, **opt):
         params = self._overwrite_params(params, **opt)
         
         # 변수 초기화
         self.__dict__.update(params)
         self.dates, self.dates_asof = self._get_dates()
+        
+        st=time.time()
         self.p, self.p_ref, self.p_close, self.p_buy, self.p_sell, self.r = self._prices()
+        print(time.time()-st)
+        
         self.dm = dm(**params, dates=self.dates, p_ref=self.p_ref, p_close=self.p_close)
         
         # 백테스트
+        st=time.time()
         self._run()
         self.turnover = ev._turnover(self.weight)
         self.stats = ev._stats(self.cum, self.beta_to, self.n_roll_stats)
+        print(time.time()-st)
 
         
     def _run(self):
         raise NotImplementedError
         
-        
-    def _prices_from(self, src, assets):
-        return self.data[src].unstack().loc[:self.end].reindex(columns=assets).fillna(method='ffill')
-    
-        
+                
     def _prices(self):    
+        data_unstacked = self.data.unstack().loc[:self.end].fillna(method='ffill')
+        
         assets = set(self.assets_member.values.flatten())
         assets.update({self.beta_to, self.cash_equiv})
         
         assets_bet = set(self.assets_member.bet)
         assets_bet.update({self.cash_equiv})
         
-        p = self._prices_from(self.perf_src, assets)
-        p_ref = self._prices_from(self.ref_src, self.assets_member.ref) 
-        r = p.pct_change()
-        
-        p_bet = self._prices_from(self.bet_src, assets_bet) 
-        p_high = self._prices_from('high', assets_bet) 
-        p_low = self._prices_from('low', assets_bet)  
+        p = data_unstacked[self.perf_src].reindex(columns=assets)
+        p_ref = data_unstacked[self.ref_src].reindex(columns=self.assets_member.ref)
+        p_bet = data_unstacked[self.bet_src].reindex(columns=assets_bet)
+        p_high = data_unstacked['high'].reindex(columns=assets_bet)
+        p_low = data_unstacked['low'].reindex(columns=assets_bet)
         
         p_bet_high = p_bet * (p_high/p_bet).mean()
         p_bet_low = p_bet * (p_low/p_bet).mean()
@@ -89,7 +90,7 @@ class BacktesterBase(object):
             p_buy = p_bet_low
             p_sell = p_bet_high
             
-        return p, p_ref, p_close, p_buy, p_sell, r    
+        return p, p_ref, p_close, p_buy, p_sell, p.pct_change()    
             
             
     def _overwrite_params(self, base_params, **what):
@@ -108,7 +109,6 @@ class BacktesterBase(object):
             dates = dates.insert(0, pd.Timestamp(self.start))
             
         if self.end not in dates: 
-            #dates = dates.insert(-1, pd.Timestamp(self.end))
             dates = dates.append(pd.DatetimeIndex([self.end]))
 
         dates_asof = pd.date_range(self.start, self.end, freq='M')
@@ -192,7 +192,6 @@ class BacktesterBase(object):
     
 
 class Backtester(BacktesterBase):
-
     def init_of_the_day(self):
         trade_amount_ = trade_cashflow_ = cost_ = 0
         
@@ -379,7 +378,6 @@ class Backtester(BacktesterBase):
         
         
 class BacktestComparator(Backtester):
-
     def __init__(self, params, **backtests):
         self.__dict__.update(params)
         self.backtests = OrderedDict(backtests)
