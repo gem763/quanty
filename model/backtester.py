@@ -207,7 +207,13 @@ class Backtester(object):
                 
           
         pos.loc[self.riskfree] += pos_rf  
-        pos.loc[self.cash_equiv] += pos_cash
+        
+        if self.cash_equiv in pos.index:
+            pos.loc[self.cash_equiv] += pos_cash
+        else: 
+            pos.loc[self.cash_equiv] = pos_cash
+        
+        #pos.loc[self.cash_equiv] += pos_cash
         return pos, ranks  
         
       
