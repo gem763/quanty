@@ -3,18 +3,34 @@ import numpy as np
 import itertools
 import time
 from .plotter import Plotter as pltr
-#from .evaluator import * #Evaluator as ev
+from .dual_momentum import DualMomentum as dm
 from ..model import evaluator as ev
 from tqdm import tqdm
 from pandas.tseries.offsets import Day
 from IPython.core.debugger import set_trace
 from collections import namedtuple, OrderedDict
+from numba import jit, float64, types
+from tqdm import tqdm
+
+
+@jit(types.Tuple((float64[:], float64, float64[:]))(float64[:], float64[:]), nopython=True)
+def _update_pos_daily_fast(pos_daily_last_np, r):
+    pos_cash = 1.0 - pos_daily_last_np.sum()
+    pos_updated = (1+r) * pos_daily_last_np
+    pos_total = pos_cash + pos_updated.sum()
+    if pos_total==0: pos_total = 1.0
+    model_rtn_ = pos_total - 1.0
+    model_contr_ = pos_updated - pos_daily_last_np
+
+    return pos_updated/pos_total, model_rtn_, model_contr_
 
 
 class Backtester(object):
   
     def __init__(self, params, **opt):
-        self.__dict__.update(self._overwrite_params(params, **opt))
+        params = self._overwrite_params(params, **opt)
+        
+        self.__dict__.update(params)
         self.dates, self.dates_asof = self._get_dates()
         
         assets = set(self.assets_member.values.flatten())
@@ -52,7 +68,10 @@ class Backtester(object):
             self.p_buy = p_bet_low
             self.p_sell = p_bet_high
  
+        self.dm = dm(**params, dates=self.dates, p_ref=self.p_ref, p_close=self.p_close)
         self._run()
+        self.turnover = ev._turnover(self.weight)
+        self.stats = ev._stats(self.cum, self.beta_to, self.n_roll_stats)
 
 
     def _overwrite_params(self, base_params, **what):
@@ -208,48 +227,17 @@ class Backtester(object):
           
         pos.loc[self.riskfree] += pos_rf  
         
-        if self.cash_equiv in pos.index:
+        try:
+        #if self.cash_equiv in pos.index:
             pos.loc[self.cash_equiv] += pos_cash
-        else: 
+            
+        except:
+        #else: 
             pos.loc[self.cash_equiv] = pos_cash
         
         #pos.loc[self.cash_equiv] += pos_cash
         return pos, ranks  
-        
-      
-    def _get_selection2(self, sig, date):
-        has_ma_mom_rf = self._has_ma_mtum_single(date, self.rf_trend, self.riskfree)
-
-        pos, ranks = self._get_default_selection(date, sig, self.n_picks)
-        pos.loc[self.riskfree] = 0
-        #pos.loc[self.cash_equiv] = 0 # 요건 당연히 0 일듯
-        
-          
-        if self._is_tradable(date, self.riskfree):
-            pos_rf = self.n_picks - pos.sum()
-
-            if self.positive_sig_for_riskfree:
-                if (not has_ma_mom_rf) and sig.loc[self.riskfree]<0:
-                    pos_rf = 0
-    
-                elif (not has_ma_mom_rf) and sig.loc[self.riskfree]>=0:
-                    pos_rf = int(pos_rf*0.5)
-                    #pass
-
-                elif has_ma_mom_rf and sig.loc[self.riskfree]<0:
-                    pos_rf = int(pos_rf*0.5)
-                    #pass
-                
-                elif has_ma_mom_rf and sig.loc[self.riskfree]>=0:
-                    pass
-                
-                else:
-                    pos_rf = 0
-
-            pos.loc[self.riskfree] = pos_rf
-        
-        return pos, ranks
-      
+              
 
     def _get_kelly_fraction(self, date):
         out = {'fr': 1.0}
@@ -345,6 +333,26 @@ class Backtester(object):
         return weight, pos, ranks, kelly_output
 
 
+    def init_of_the_day(self):
+        trade_amount_ = trade_cashflow_ = cost_ = 0
+        
+        try:
+            hold_ = self.hold[-1].copy()
+            cash_ = self.wealth[-1][-2]
+            weight_ = self.weight[-1].copy()
+            pos_ = self.pos[-1].copy()
+            pos_d_ = self.pos_d[-1].copy()
+
+        except:
+            hold_ = pd.Series()
+            cash_ = self.cash
+            weight_ = pd.Series()
+            pos_ = pd.Series()
+            pos_d_ = pd.Series()
+
+        return hold_, cash_, weight_, pos_, pos_d_, trade_amount_, trade_cashflow_, cost_
+        
+    
     def _run(self):
         trade_due = -1
         
@@ -363,18 +371,11 @@ class Backtester(object):
         self.weight = []  # 최종비중 (켈리반영)
         self.kelly = []
         
-        #st=time.time()
-        for date in self.dates:
+        for date in tqdm(self.dates):
             if date in self.p.index: 
                 trade_due -= 1
                 
-            trade_amount_ = trade_cashflow_ = cost_ = 0
-            
-            hold_ = self.hold[-1].copy() if len(self.hold)>0 else pd.Series()
-            cash_ = self.wealth[-1][-2] if len(self.wealth)>0 else self.cash
-            weight_ = self.weight[-1].copy() if len(self.weight)>0 else pd.Series()
-            pos_ = self.pos[-1].copy() if len(self.pos)>0 else pd.Series()
-            pos_d_ = self.pos_d[-1].copy() if len(self.pos_d)>0 else pd.Series()
+            hold_, cash_, weight_, pos_, pos_d_, trade_amount_, trade_cashflow_, cost_ = self.init_of_the_day()
             
             
             # 0. 리밸런싱 실행하는 날
@@ -434,30 +435,22 @@ class Backtester(object):
         cum = self.p.reindex(self.dates, method='ffill')
         cum['DualMomentum'] = self.wealth['nav']
         self.cum = cum / cum.bfill().iloc[0]
-
-        # Turnover
-        self.turnover = self._get_turnover()
+            
+            
+    def _update_pos_daily(self, date, pos_daily_last_):    
+        if date in self.r.index:
+            assets = pos_daily_last_.index[pos_daily_last_!=0]
+            pos_daily_last_np = pos_daily_last_.loc[assets].values
+            r = self.r.loc[date, assets].values
+            pos_daily_last_np, model_rtn_, model_contr_ = _update_pos_daily_fast(pos_daily_last_np, r)
+            
+            return pd.Series(pos_daily_last_np, index=assets), model_rtn_, model_contr_
         
-        #print(time.time()-st)
-        #st=time.time()
-        
-        # 성과통계
-        self.stats = ev._stats(self.cum, self.beta_to, self.n_roll_stats)
-        
-        #print(time.time()-st)
+        else:
+            return pos_daily_last_, 0.0, pd.Series()
         
         
-    def _get_turnover(self):
-        turnover = pd.Series()
-
-        for idt, dt in enumerate(self.weight.index):
-            if idt!=0:
-                turnover[dt] = self.weight.iloc[idt].sub(self.weight.iloc[idt-1], fill_value=0).abs().sum()/2  
-
-        return turnover.rolling(12).sum().dropna()
-    
-        
-    def _update_pos_daily(self, date, pos_daily_last_):
+    def _update_pos_daily2(self, date, pos_daily_last_):
         #if date>pd.Timestamp('2005-12-31'): set_trace()
         if date in self.r.index:
             pos_cash = 1.0 - pos_daily_last_.sum()
@@ -519,8 +512,8 @@ class Backtester(object):
                 
         
     def _positionize(self, date, weight_asis_, trade_due):
-        sig_ = self._get_signal(date)
-        weight_, pos_, ranks_, kelly_output = self._get_weights(sig_, date)
+        sig_ = self.dm._signal(date) #self._get_signal(date)
+        weight_, pos_, ranks_, kelly_output = self.dm._weights(sig_, date, self.wealth, self.model_rtn) #self._get_weights(sig_, date)
         
         if weight_.sub(weight_asis_, fill_value=0).abs().sum()!=0:
             trade_due = self.trade_delay
@@ -531,8 +524,11 @@ class Backtester(object):
     def _evaluate(self, date, hold_, cash_):
         if date==self.dates[0]:
             eq_value_ = pd.Series()
+            
         else:
             eq_value_ = hold_ * self.p_close.loc[:date].iloc[-1]
+            #i_date = self.p_close.index.asof(date)
+            #eq_value_ = hold_ * self.p_close.loc[i_date]
 
         value_ = eq_value_.sum()
         nav_ = value_ + cash_
@@ -605,9 +601,9 @@ class Backtester(object):
         
     def plot_breakdown(self):
         pltr.plot_breakdown(self.model_contr, self.weight)
-
-
-
+        
+        
+        
 class BacktestComparator(Backtester):
 
     def __init__(self, params, **backtests):
