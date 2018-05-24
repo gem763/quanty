@@ -1,37 +1,31 @@
 import numpy as np
 import pandas as pd
+from IPython.core.debugger import set_trace
 from pandas.tseries.offsets import Day
-from ..model import evaluator as ev
 
 
 class DualMomentum(object):
     
     def __init__(self, **params):
         #mode
-        #dates
-        #w_type
         #n_picks
         #sig_w
-        #iv_period
         #p_ref
         #p_close
         #assets_member_bet
-        #fill_cash
         #cash_equiv
         #riskfree
         #market
         #rf_trend
         #support_cash
         #overall_market_check
-        #apply_kelly
-        
         self.__dict__.update(**params)
 
 
-    def get(self, date, wealth, model_rtn):
+    def get(self, date):
         sig_ = self._signal(date)
-        weight_, pos_, ranks_, kelly_output = self._weights(sig_, date, wealth, model_rtn)
-        return weight_, pos_, ranks_, kelly_output, sig_
+        selection_, ranks_ = self._selection(sig_, date)
+        return selection_, ranks_, sig_
     
     
     def _signal(self, date):
@@ -39,7 +33,6 @@ class DualMomentum(object):
         n_back = n_sig_w*31 + 40
         date_from = date - n_back*Day()
         date_to = date - 0*Day()
-        
         p = self.p_ref.loc[date_from:date_to].resample('M').ffill().iloc[-n_sig_w-1:]
         r = (p.iloc[-1]/p.iloc[:-1]-1).replace(np.inf, np.nan)
         sig_w = self.sig_w[-len(r):]
@@ -58,55 +51,9 @@ class DualMomentum(object):
           
         else:
             return self.p_close.loc[:date].iloc[-1].notnull()
-        
-        
-    def _weights(self, sig, date, wealth, model_rtn):
-        pos, ranks = self._get_selection(sig, date)
-        
-        if self.w_type=='ew':
-            pos *= (1.0 / self.n_picks)
-
-        elif self.w_type=='ranky':
-            pos *= (1.0 / ranks)
-
-        elif self.w_type=='ranky2':
-            pos *= (1.0 / (ranks**0.5))
             
-        elif self.w_type=='sig':
-            sig_ = sig[pos!=0]
-            #sig_plus = sig_[sig_>0]
-            sig_[sig_<=0] = sig_[sig_>0].mean()
-            pos *= sig_
-            
-        elif self.w_type=='iv':
-            i_date = self.p_close.index.get_loc(date, method='ffill')
-            df = self.p_close.iloc[i_date+1-self.iv_period:i_date+1]
-            
-            # Underlying index 중에 종종 일일데이터가 없는 경우가 있다
-            # 이 종목은 변동성이 매우 작을 것이므로, 제거한다
-            has_enough = pd.Series({k:df[k].nunique() for k in df}) > self.iv_period/2.0
-            std = df[has_enough.index[has_enough]].pct_change().std()
-            #std = df.pct_change().std()
-            pos *= (1.0 / std)
-
-        # Normalize
-        pos /= pos.sum()
-        
-        # position scaling by kelly fraction
-        kelly_output = self._get_kelly_fraction(date, wealth, model_rtn)
-        weight = pos.mul(kelly_output['fr'], fill_value=0)
-        
-        if self.fill_cash and self._is_tradable(date, self.cash_equiv):
-            pos.loc[self.cash_equiv] = 0.0
-            pos.loc[self.cash_equiv] = 1.0 - pos.sum()
-                
-            weight.loc[self.cash_equiv] = 0.0
-            weight.loc[self.cash_equiv] = 1.0 - weight.sum()
-        
-        return weight, pos, ranks, kelly_output
     
-    
-    def _get_selection(self, sig, date):
+    def _selection(self, sig, date):
         is_rf_tradable = self._is_tradable(date, self.riskfree)
         has_rf_ma_mtum = self._has_ma_mtum_single(date, self.rf_trend, self.riskfree)
         has_rf_positive_sig = sig.loc[self.riskfree]>=0
@@ -139,14 +86,11 @@ class DualMomentum(object):
         pos.loc[self.riskfree] += pos_rf  
         
         try:
-        #if self.cash_equiv in pos.index:
             pos.loc[self.cash_equiv] += pos_cash
             
         except:
-        #else: 
             pos.loc[self.cash_equiv] = pos_cash
         
-        #pos.loc[self.cash_equiv] += pos_cash
         return pos, ranks
     
     
@@ -201,42 +145,3 @@ class DualMomentum(object):
             
         return has_ma_mtum
     
-    
-    def _get_kelly_fraction(self, date, wealth, model_rtn):
-        out = {'fr': 1.0}
-
-        if (self.apply_kelly is not None) and (date!=self.dates[0]):
-          
-            if self.apply_kelly['self_eval']:
-                ref_rtn = np.array(wealth)[-1:-1-self.apply_kelly['vol_period']-1:-1,-1][::-1]
-                ref_rtn = ref_rtn[1:] / ref_rtn[:-1] - 1.0
-                
-            else:
-                ref_rtn = np.array(model_rtn)[-1:-1-self.apply_kelly['vol_period']:-1][::-1]
-            
-            if len(ref_rtn)>=20:
-                if self.apply_kelly['method']=='semivariance':
-                    up = ev._std_dir_by_r(ref_rtn, 1)/100
-                    down = ev._std_dir_by_r(ref_rtn, -1)/100
-                    fr_raw = ((up-down) / (2*up*down))
-
-                    if not np.isnan(fr_raw): 
-                        out['up'] = up
-                        out['down'] = down
-                        out['fr_raw'] = fr_raw
-                        out['fr'] = fr_raw.clip(0,1)
-
-                elif self.apply_kelly['method']=='traditional':
-                    #cash_rtn = self.r[self.cash_equiv].loc[:date][-1:-1-self.apply_kelly['vol_period']:-1][::-1]
-                    #mu_cash = np.nanmean(cash_rtn)
-                    mu = np.nanmean(ref_rtn)
-                    var = np.nanvar(ref_rtn)
-
-                    if (not np.isnan(var)) and var!=0:
-                        fr_raw = mu / var
-                        out['mu'] = mu
-                        out['var'] = var
-                        out['fr_raw'] = fr_raw
-                        out['fr'] = fr_raw.clip(0,1)
-
-        return out

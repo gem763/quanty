@@ -11,6 +11,7 @@ from tqdm import tqdm
 # Custom modules
 from .plotter import Plotter as pltr
 from .dual_momentum import DualMomentum as dm
+from .portfolizer import Portfolio as port
 from ..model import evaluator as ev
 
 
@@ -35,17 +36,20 @@ class BacktesterBase(object):
         # 변수 초기화
         self.__dict__.update(params)
         self.dates, self.dates_asof = self._get_dates()
-        
-        st=time.time()
         self.p, self.p_ref, self.p_close, self.p_buy, self.p_sell, self.r = self._prices()
-        print(time.time()-st)
-        
-        self.dm = dm(**params, dates=self.dates, p_ref=self.p_ref, p_close=self.p_close)
+        self.dm = dm(**params, p_ref=self.p_ref, p_close=self.p_close)
+        self.port = port(self.w_type, self.cash_equiv, self.p_close, self.iv_period, self.apply_kelly)
         
         # 백테스트
         st=time.time()
         self._run()
+        print(time.time()-st)
+        
+        st=time.time()
         self.turnover = ev._turnover(self.weight)
+        print(time.time()-st)
+        
+        st=time.time()
         self.stats = ev._stats(self.cum, self.beta_to, self.n_roll_stats)
         print(time.time()-st)
 
@@ -111,6 +115,8 @@ class BacktesterBase(object):
         if self.end not in dates: 
             dates = dates.append(pd.DatetimeIndex([self.end]))
 
+        #dates_ref = pd.date_range(dates_all[0], self.end, freq='M')
+        #set_trace()
         dates_asof = pd.date_range(self.start, self.end, freq='M')
         dates_asof = dates_all[dates_all.get_indexer(dates_asof, method='ffill')] & dates
         
@@ -353,7 +359,10 @@ class Backtester(BacktesterBase):
 
 
     def _positionize(self, date, weight_asis_, trade_due):
-        weight_, pos_, ranks_, kelly_output, sig_ = self.dm.get(date, self.wealth, self.model_rtn)
+        selection_, ranks_, sig_ = self.dm.get(date)
+        weight_, pos_, kelly_output = self.port.get(selection_, date, sig_, ranks_, self.wealth, self.model_rtn)
+        
+        #weight_, pos_, ranks_, kelly_output, sig_ = self.dm.get(date, self.wealth, self.model_rtn)
 
         if weight_.sub(weight_asis_, fill_value=0).abs().sum()!=0:
             trade_due = self.trade_delay
