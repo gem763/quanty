@@ -18,6 +18,16 @@ def _signal_nb(i_date, i_ref, p_ref_val, sig_w):
     
     return out
     
+
+@njit(float64[:,:](int64[:], int64[:], float64[:,:], int32[:,:]))
+def _signal_all_nb(i_dates, i_ref, p_ref_val, sig_w):
+    out = np.empty((len(i_dates), p_ref_val.shape[1]))
+        
+    for i,i_date in enumerate(i_dates):
+        out[i,:] = _signal_nb(i_date, i_ref, p_ref_val, sig_w)
+        
+    return out
+    
     
 @njit(boolean(int64, int64, int64, float64[:,:], int64))
 def _has_ma_mtum_single_nb(i_date, term_short, term_long, p_ref_val, i_asset):
@@ -36,8 +46,52 @@ def _has_ma_mtum_nb(i_date, term_short, term_long, p_ref_val):
         out[i_asset] = _has_ma_mtum_single_nb(i_date, term_short, term_long, p_ref_val, i_asset)
         
     return out
+
+
+@njit(boolean[:,:](int64[:], int64, int64, float64[:,:]))
+def _has_ma_mtum_all_nb(i_dates, term_short, term_long, p_ref_val):
+    out = np.empty((len(i_dates), p_ref_val.shape[1]), dtype=boolean)
+        
+    for i,i_date in enumerate(i_dates):
+        out[i,:] = _has_ma_mtum_nb(i_date, term_short, term_long, p_ref_val)
+        
+    return out
+
+
+
+class DualMomentum2(object):
+    def __init__(self, **params):
+        self.__dict__.update(**params)
+        
+        dates_ref = pd.date_range(self.p_ref.index[0], self.p_ref.index[-1], freq='M')
+        self.i_ref = self.p_ref.index.get_indexer(dates_ref, method='ffill')
+        self.i_dates = self.p_ref.index.get_indexer(self.dates_asof, method='ffill')
+        self.p_ref_val = self.p_ref.values
+        self.p_close_val = self.p_close.values
+        self.sig_w = self.sig_w.reshape(-1,1)
+        
+        self.sig = self._signal()
+
+        
+    def _has_ma_mtum(self):
+        has_ma_mtum = _has_ma_mtum_all_nb(self.i_dates, self.self_trend[0], self.self_trend[1], self.p_ref_val)
+        return pd.DataFrame(has_ma_mtum, index=self.dates_asof, columns=self.assets_member.bet)
+        
     
-    
+    def _signal(self):
+        sig = _signal_all_nb(self.i_dates, self.i_ref, self.p_ref_val, self.sig_w)
+        sig = pd.DataFrame(sig, index=self.dates_asof, columns=self.assets_member.bet)
+        is_tradable = self.p_close.loc[self.dates_asof].notnull()
+        sig[~is_tradable] = np.nan
+
+        if self.self_trend is not None:
+            has_ma_mtum = self._has_ma_mtum()
+            sig[~has_ma_mtum] = np.nan
+
+        return sig
+
+
+
 class DualMomentum(object):
     
     def __init__(self, **params):
@@ -57,17 +111,18 @@ class DualMomentum(object):
         
         dates_ref = pd.date_range(self.p_ref.index[0], self.p_ref.index[-1], freq='M')
         self.i_ref = self.p_ref.index.get_indexer(dates_ref, method='ffill')
+        #self.i_dates = self.p_ref.index.get_indexer(self.dates_asof, method='ffill')
         self.p_ref_val = self.p_ref.values
         self.p_close_val = self.p_close.values
         self.sig_w = self.sig_w.reshape(-1,1)
-
+        
 
     def get(self, date):
         i_date = self.p_ref.index.get_loc(date, method='ffill')
         sig_ = self._signal(i_date)
         selection_, ranks_ = self._selection(sig_, i_date)
         return selection_, ranks_, sig_
-    
+            
     
     def _signal(self, i_date):
         sig = _signal_nb(i_date, self.i_ref, self.p_ref_val, self.sig_w)

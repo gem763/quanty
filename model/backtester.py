@@ -11,6 +11,7 @@ from tqdm import tqdm
 # Custom modules
 from .plotter import Plotter as pltr
 from .dual_momentum import DualMomentum as dm
+from .dual_momentum import DualMomentum2 as dm2
 from .portfolizer import Portfolio as port
 from ..model import evaluator as ev
 
@@ -37,8 +38,10 @@ class BacktesterBase(object):
         self.__dict__.update(params)
         self.dates, self.dates_asof = self._get_dates()
         self.p, self.p_ref, self.p_close, self.p_buy, self.p_sell, self.r = self._prices()
-        self.dm = dm(**params, p_ref=self.p_ref, p_close=self.p_close)
+        self.dm = dm(**params, p_ref=self.p_ref, p_close=self.p_close, dates_asof=self.dates_asof)
+        self.dm2 = dm2(**params, p_ref=self.p_ref, p_close=self.p_close, dates_asof=self.dates_asof)
         self.port = port(self.w_type, self.cash_equiv, self.p_close, self.iv_period, self.apply_kelly)
+        
         
         # 백테스트
         st=time.time()
@@ -235,6 +238,7 @@ class Backtester(BacktesterBase):
         self.pos = []     # 듀얼모멘텀 모델 자체에서 산출되는 비중
         self.weight = []  # 최종비중 (켈리반영)
         self.kelly = []
+        self.selection = []
         
         for date in tqdm(self.dates):
             if date in self.p.index: 
@@ -253,7 +257,7 @@ class Backtester(BacktesterBase):
 
             # 1. 리밸런싱 비중결정하는 날
             elif date in self.dates_asof:
-                weight_, pos_, sig_, ranks_, trade_due, kelly_output = self._positionize(date, weight_, trade_due)
+                weight_, pos_, sig_, ranks_, trade_due, kelly_output, selection_ = self._positionize(date, weight_, trade_due)
                 pos_d_, model_rtn_, model_contr_ = self._update_pos_daily(date, pos_d_)
                 
                 self.sig.append(sig_)
@@ -261,6 +265,7 @@ class Backtester(BacktesterBase):
                 self.weight.append(weight_)
                 self.pos.append(pos_)
                 self.kelly.append(kelly_output)
+                self.selection.append(selection_)
                 
               
             # 2. 아무일도 없는 날
@@ -286,6 +291,7 @@ class Backtester(BacktesterBase):
         self.weight = pd.DataFrame(self.weight, index=self.dates_asof)
         self.pos = pd.DataFrame(self.pos, index=self.dates_asof)
         self.kelly = pd.DataFrame(self.kelly, index=self.dates_asof)
+        self.selection = pd.DataFrame(self.selection, index=self.dates_asof)
         
         # Daily Booking
         self.hold = pd.DataFrame(self.hold, index=self.dates)
@@ -367,7 +373,7 @@ class Backtester(BacktesterBase):
         if weight_.sub(weight_asis_, fill_value=0).abs().sum()!=0:
             trade_due = self.trade_delay
 
-        return weight_, pos_, sig_, ranks_, trade_due, kelly_output
+        return weight_, pos_, sig_, ranks_, trade_due, kelly_output, selection_
 
 
     def _evaluate(self, date, hold_, cash_):
