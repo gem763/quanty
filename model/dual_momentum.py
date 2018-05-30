@@ -58,6 +58,16 @@ def _has_ma_mtum_all_nb(i_dates, term_short, term_long, p_ref_val):
     return out
 
 
+@njit(boolean[:,:](int64[:], int64, int64, float64[:,:], int64))
+def _has_ma_mtum_all_single_nb(i_dates, term_short, term_long, p_ref_val, i_asset):
+    out = np.empty((len(i_dates), 1), dtype=boolean)
+
+    for i,i_date in enumerate(i_dates):
+        out[i,:] = _has_ma_mtum_single_nb(i_date, term_short, term_long, p_ref_val, i_asset)
+
+    return out
+
+
 
 class DualMomentum2(object):
     def __init__(self, **params):
@@ -70,12 +80,19 @@ class DualMomentum2(object):
         self.p_close_val = self.p_close.values
         self.sig_w = self.sig_w.reshape(-1,1)
         
-        self.sig = self._signal()
+        self.sig, self.is_tradable = self._signal()
+        self.selection, self.ranks = self._selection_all()
 
         
-    def _has_ma_mtum(self):
-        has_ma_mtum = _has_ma_mtum_all_nb(self.i_dates, self.self_trend[0], self.self_trend[1], self.p_ref_val)
-        return pd.DataFrame(has_ma_mtum, index=self.dates_asof, columns=self.assets_member.bet)
+    def _has_ma_mtum(self, terms, asset=None):
+        if asset is None:
+            has_ma_mtum = _has_ma_mtum_all_nb(self.i_dates, terms[0], terms[1], self.p_ref_val)
+            return pd.DataFrame(has_ma_mtum, index=self.dates_asof, columns=self.assets_member.bet)
+        
+        else:
+            i_asset = self.p_ref.columns.get_loc(asset)
+            has_ma_mtum = _has_ma_mtum_all_single_nb(self.i_dates, terms[0], terms[1], self.p_ref_val, i_asset)
+            return pd.DataFrame(has_ma_mtum, index=self.dates_asof, columns=[asset])
         
     
     def _signal(self):
@@ -84,13 +101,106 @@ class DualMomentum2(object):
         is_tradable = self.p_close.loc[self.dates_asof].notnull()
         sig[~is_tradable] = np.nan
 
-        if self.self_trend is not None:
-            has_ma_mtum = self._has_ma_mtum()
-            sig[~has_ma_mtum] = np.nan
-
-        return sig
+        return sig, is_tradable
 
 
+    def _selection_all(self):
+        selection = []
+        ranks = []
+        
+        for i, i_date in enumerate(self.i_dates):
+            selection_, ranks_ = self._selection(self.sig.iloc[i], self.is_tradable.iloc[i], i_date)
+            selection.append(selection_)
+            ranks.append(ranks_)
+        
+        selection = pd.DataFrame(selection, index=self.dates_asof)
+        ranks = pd.DataFrame(ranks, index=self.dates_asof)
+        return selection, ranks
+    
+    
+    def _selection(self, sig, is_tradable, i_date):
+        #is_tradable = self._is_tradable(i_date)
+        #sig.loc[~is_tradable] = np.nan
+        
+        has_rf_ma_mtum = self._has_ma_mtum_single(i_date, self.rf_trend, self.riskfree)
+        has_rf_positive_sig = sig.loc[self.riskfree]>=0
+        
+        if self.support_cash and is_tradable[self.riskfree] and (has_rf_ma_mtum or has_rf_positive_sig):
+            pos, ranks = self._get_default_selection(i_date, sig, self.n_picks-1)
+            pos_rf = self.n_picks - pos.sum()
+            pos_cash = 0
+            
+            if has_rf_ma_mtum and has_rf_positive_sig:
+                pass
+            
+            elif has_rf_ma_mtum:
+                pos_rf = int(pos_rf*0.5)
+              
+            elif has_rf_positive_sig:
+                pos_rf = int(pos_rf*0.5)
+          
+        else:
+            pos, ranks = self._get_default_selection(i_date, sig, self.n_picks)
+            pos_rf = 0
+
+            if is_tradable[self.cash_equiv]:
+                pos_cash = self.n_picks - pos.sum()
+                
+            else:
+                pos_cash = 0
+                
+          
+        pos.loc[self.riskfree] += pos_rf  
+        
+        try:
+            pos.loc[self.cash_equiv] += pos_cash
+            
+        except:
+            pos.loc[self.cash_equiv] = pos_cash
+        
+        return pos, ranks
+    
+    
+    def _get_default_selection(self, i_date, sig, n_picks):
+        score = self._screen_by_ma_mtum(sig.copy(), i_date, self.self_trend)
+        ranks = score.rank(ascending=False, na_option='bottom')
+        
+        if self.mode=='DualMomentum':
+            pos = (score>0) & (ranks<1+n_picks)
+            if self.overall_market_check:
+                pos &= (sig.loc[self.market]>0)
+          
+        elif self.mode=='RelativeMomentum':
+            pos = ranks<1+n_picks
+          
+        elif self.mode=='AbsoluteMomentum':
+            pos = (score>0)
+            if self.overall_market_check:
+                pos &= (sig.loc[self.market]>0)
+                
+        return pos.astype(int), ranks
+    
+    
+    def _screen_by_ma_mtum(self, score, i_date, terms):
+        if terms is not None:
+            has_ma_mtum = _has_ma_mtum_nb(i_date, terms[0], terms[1], self.p_ref_val)
+            score.loc[~has_ma_mtum] = np.nan
+            
+        return score
+        
+      
+    def _has_ma_mtum_single(self, i_date, terms, asset_ref):
+        if terms is not None:
+            i_asset = self.p_ref.columns.get_loc(asset_ref)
+            has_ma_mtum = _has_ma_mtum_single_nb(i_date, terms[0], terms[1], self.p_ref_val, i_asset)
+        
+        else:
+            has_ma_mtum = True
+            
+        return has_ma_mtum    
+    
+    
+    
 
 class DualMomentum(object):
     
@@ -117,12 +227,19 @@ class DualMomentum(object):
         self.sig_w = self.sig_w.reshape(-1,1)
         
 
-    def get(self, date):
+    def get2(self, date):
         i_date = self.p_ref.index.get_loc(date, method='ffill')
         sig_ = self._signal(i_date)
         selection_, ranks_ = self._selection(sig_, i_date)
         return selection_, ranks_, sig_
             
+    
+    def get(self, date, sig_):
+        i_date = self.p_ref.index.get_loc(date, method='ffill')
+        #sig_ = self._signal(i_date)
+        selection_, ranks_ = self._selection(sig_, i_date)
+        return selection_, ranks_, sig_
+    
     
     def _signal(self, i_date):
         sig = _signal_nb(i_date, self.i_ref, self.p_ref_val, self.sig_w)
@@ -148,8 +265,8 @@ class DualMomentum(object):
     
     def _is_tradable(self, i_date):
         return self.p_close.iloc[i_date].notnull()
-            
-    
+
+
     def _selection(self, sig, i_date):
         is_tradable = self._is_tradable(i_date)
         sig.loc[~is_tradable] = np.nan

@@ -38,23 +38,23 @@ class BacktesterBase(object):
         self.__dict__.update(params)
         self.dates, self.dates_asof = self._get_dates()
         self.p, self.p_ref, self.p_close, self.p_buy, self.p_sell, self.r = self._prices()
-        self.dm = dm(**params, p_ref=self.p_ref, p_close=self.p_close, dates_asof=self.dates_asof)
+        #self.dm = dm(**params, p_ref=self.p_ref, p_close=self.p_close, dates_asof=self.dates_asof)
         self.dm2 = dm2(**params, p_ref=self.p_ref, p_close=self.p_close, dates_asof=self.dates_asof)
         self.port = port(self.w_type, self.cash_equiv, self.p_close, self.iv_period, self.apply_kelly)
         
         
         # 백테스트
-        st=time.time()
+#        st=time.time()
         self._run()
-        print(time.time()-st)
+#        print(time.time()-st)
         
-        st=time.time()
+#        st=time.time()
         self.turnover = ev._turnover(self.weight)
-        print(time.time()-st)
+#        print(time.time()-st)
         
-        st=time.time()
+#        st=time.time()
         self.stats = ev._stats(self.cum, self.beta_to, self.n_roll_stats)
-        print(time.time()-st)
+#        print(time.time()-st)
 
         
     def _run(self):
@@ -365,7 +365,11 @@ class Backtester(BacktesterBase):
 
 
     def _positionize(self, date, weight_asis_, trade_due):
-        selection_, ranks_, sig_ = self.dm.get(date)
+        #sig_ = self.dm2.sig.loc[date]
+        #selection_, ranks_, sig_ = self.dm.get(date, sig_)
+        #selection_, ranks_, sig_ = self.dm.get2(date)
+        
+        selection_, ranks_, sig_ = self.dm2.selection.loc[date], self.dm2.ranks.loc[date], self.dm2.sig.loc[date]
         weight_, pos_, kelly_output = self.port.get(selection_, date, sig_, ranks_, self.wealth, self.model_rtn)
         
         #weight_, pos_, ranks_, kelly_output, sig_ = self.dm.get(date, self.wealth, self.model_rtn)
