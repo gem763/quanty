@@ -11,7 +11,6 @@ from tqdm import tqdm
 # Custom modules
 from .plotter import Plotter as pltr
 from .dual_momentum import DualMomentum as dm
-from .dual_momentum import DualMomentum2 as dm2
 from .portfolizer import Portfolio as port
 from ..model import evaluator as ev
 
@@ -38,8 +37,7 @@ class BacktesterBase(object):
         self.__dict__.update(params)
         self.dates, self.dates_asof = self._get_dates()
         self.p, self.p_ref, self.p_close, self.p_buy, self.p_sell, self.r = self._prices()
-        #self.dm = dm(**params, p_ref=self.p_ref, p_close=self.p_close, dates_asof=self.dates_asof)
-        self.dm2 = dm2(**params, p_ref=self.p_ref, p_close=self.p_close, dates_asof=self.dates_asof)
+        self.dm = dm(**params, p_ref=self.p_ref, p_close=self.p_close, dates_asof=self.dates_asof)
         self.port = port(self.w_type, self.cash_equiv, self.p_close, self.iv_period, self.apply_kelly)
         
         
@@ -257,15 +255,15 @@ class Backtester(BacktesterBase):
 
             # 1. 리밸런싱 비중결정하는 날
             elif date in self.dates_asof:
-                weight_, pos_, sig_, ranks_, trade_due, kelly_output, selection_ = self._positionize(date, weight_, trade_due)
+                weight_, pos_, trade_due, kelly_output = self._positionize(date, weight_, trade_due)
                 pos_d_, model_rtn_, model_contr_ = self._update_pos_daily(date, pos_d_)
                 
-                self.sig.append(sig_)
-                self.ranks.append(ranks_)
+                #self.sig.append(sig_)
+                #self.ranks.append(ranks_)
                 self.weight.append(weight_)
                 self.pos.append(pos_)
                 self.kelly.append(kelly_output)
-                self.selection.append(selection_)
+                #self.selection.append(selection_)
                 
               
             # 2. 아무일도 없는 날
@@ -365,19 +363,13 @@ class Backtester(BacktesterBase):
 
 
     def _positionize(self, date, weight_asis_, trade_due):
-        #sig_ = self.dm2.sig.loc[date]
-        #selection_, ranks_, sig_ = self.dm.get(date, sig_)
-        #selection_, ranks_, sig_ = self.dm.get2(date)
-        
-        selection_, ranks_, sig_ = self.dm2.selection.loc[date], self.dm2.ranks.loc[date], self.dm2.sig.loc[date]
+        selection_, sig_, ranks_ = self.dm.selection.loc[date], self.dm.sig.loc[date], self.dm.ranks.loc[date]
         weight_, pos_, kelly_output = self.port.get(selection_, date, sig_, ranks_, self.wealth, self.model_rtn)
         
-        #weight_, pos_, ranks_, kelly_output, sig_ = self.dm.get(date, self.wealth, self.model_rtn)
-
         if weight_.sub(weight_asis_, fill_value=0).abs().sum()!=0:
             trade_due = self.trade_delay
 
-        return weight_, pos_, sig_, ranks_, trade_due, kelly_output, selection_
+        return weight_, pos_, trade_due, kelly_output
 
 
     def _evaluate(self, date, hold_, cash_):
@@ -386,8 +378,6 @@ class Backtester(BacktesterBase):
             
         else:
             eq_value_ = hold_ * self.p_close.loc[:date].iloc[-1]
-            #i_date = self.p_close.index.asof(date)
-            #eq_value_ = hold_ * self.p_close.loc[i_date]
 
         value_ = eq_value_.sum()
         nav_ = value_ + cash_

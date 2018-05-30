@@ -69,7 +69,7 @@ def _has_ma_mtum_all_single_nb(i_dates, term_short, term_long, p_ref_val, i_asse
 
 
 
-class DualMomentum2(object):
+class DualMomentum(object):
     def __init__(self, **params):
         self.__dict__.update(**params)
         
@@ -84,17 +84,6 @@ class DualMomentum2(object):
         self.selection, self.ranks = self._selection_all()
 
         
-    def _has_ma_mtum(self, terms, asset=None):
-        if asset is None:
-            has_ma_mtum = _has_ma_mtum_all_nb(self.i_dates, terms[0], terms[1], self.p_ref_val)
-            return pd.DataFrame(has_ma_mtum, index=self.dates_asof, columns=self.assets_member.bet)
-        
-        else:
-            i_asset = self.p_ref.columns.get_loc(asset)
-            has_ma_mtum = _has_ma_mtum_all_single_nb(self.i_dates, terms[0], terms[1], self.p_ref_val, i_asset)
-            return pd.DataFrame(has_ma_mtum, index=self.dates_asof, columns=[asset])
-        
-    
     def _signal(self):
         sig = _signal_all_nb(self.i_dates, self.i_ref, self.p_ref_val, self.sig_w)
         sig = pd.DataFrame(sig, index=self.dates_asof, columns=self.assets_member.bet)
@@ -119,9 +108,6 @@ class DualMomentum2(object):
     
     
     def _selection(self, sig, is_tradable, i_date):
-        #is_tradable = self._is_tradable(i_date)
-        #sig.loc[~is_tradable] = np.nan
-        
         has_rf_ma_mtum = self._has_ma_mtum_single(i_date, self.rf_trend, self.riskfree)
         has_rf_positive_sig = sig.loc[self.riskfree]>=0
         
@@ -201,8 +187,9 @@ class DualMomentum2(object):
     
     
     
-
-class DualMomentum(object):
+    
+    
+class DualMomentum2(object):
     
     def __init__(self, **params):
         #mode
