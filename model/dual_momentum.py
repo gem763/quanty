@@ -5,7 +5,7 @@ from pandas.tseries.offsets import Day
 from numba import njit, float64, int64, int32, boolean
 
 
-@njit(float64[:](int64, int64[:], float64[:,:], int32[:,:]))
+@njit#(float64[:](int64, int64[:], float64[:,:], int32[:,:]))
 def _signal_nb(i_date, i_ref, p_ref_val, sig_w):
     r = p_ref_val[i_date] / p_ref_val[i_ref[i_ref<i_date][-len(sig_w):]] - 1.0
     r *= sig_w[-r.shape[0]:]
@@ -19,7 +19,7 @@ def _signal_nb(i_date, i_ref, p_ref_val, sig_w):
     return out
     
 
-@njit(float64[:,:](int64[:], int64[:], float64[:,:], int32[:,:]))
+@njit#(float64[:,:](int64[:], int64[:], float64[:,:], int32[:,:]))
 def _signal_all_nb(i_dates, i_ref, p_ref_val, sig_w):
     out = np.empty((len(i_dates), p_ref_val.shape[1]))
         
@@ -29,7 +29,7 @@ def _signal_all_nb(i_dates, i_ref, p_ref_val, sig_w):
     return out
     
     
-@njit(boolean(int64, int64, int64, float64[:,:], int64))
+@njit#(boolean(int64, int64, int64, float64[:,:], int64))
 def _has_ma_mtum_single_nb(i_date, term_short, term_long, p_ref_val, i_asset):
     p = p_ref_val[:i_date+1,i_asset]
     p_ma_short = np.nanmean(p[-term_short:])
@@ -37,7 +37,7 @@ def _has_ma_mtum_single_nb(i_date, term_short, term_long, p_ref_val, i_asset):
     return p_ma_short>p_ma_long
     
 
-@njit(boolean[:](int64, int64, int64, float64[:,:]))
+@njit#(boolean[:](int64, int64, int64, float64[:,:]))
 def _has_ma_mtum_nb(i_date, term_short, term_long, p_ref_val):
     n = p_ref_val.shape[1]
     out = np.empty(n, dtype=boolean)
@@ -48,7 +48,7 @@ def _has_ma_mtum_nb(i_date, term_short, term_long, p_ref_val):
     return out
 
 
-@njit(boolean[:,:](int64[:], int64, int64, float64[:,:]))
+@njit#(boolean[:,:](int64[:], int64, int64, float64[:,:]))
 def _has_ma_mtum_all_nb(i_dates, term_short, term_long, p_ref_val):
     out = np.empty((len(i_dates), p_ref_val.shape[1]), dtype=boolean)
         
@@ -58,7 +58,7 @@ def _has_ma_mtum_all_nb(i_dates, term_short, term_long, p_ref_val):
     return out
 
 
-@njit(boolean[:,:](int64[:], int64, int64, float64[:,:], int64))
+@njit#(boolean[:,:](int64[:], int64, int64, float64[:,:], int64))
 def _has_ma_mtum_all_single_nb(i_dates, term_short, term_long, p_ref_val, i_asset):
     out = np.empty((len(i_dates), 1), dtype=boolean)
 
