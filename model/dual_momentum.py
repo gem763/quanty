@@ -87,7 +87,8 @@ class DualMomentum(object):
     def _signal(self):
         sig = _signal_all_nb(self.i_dates, self.i_ref, self.p_ref_val, self.sig_w)
         sig = pd.DataFrame(sig, index=self.dates_asof, columns=self.assets_member.bet)
-        is_tradable = self.p_close.loc[self.dates_asof].notnull()
+        #is_tradable = self.p_close.loc[self.dates_asof].notnull()
+        is_tradable = self.p_close.reindex(index=self.dates_asof, method='ffill').notnull()
         sig[~is_tradable] = np.nan
 
         return sig, is_tradable
