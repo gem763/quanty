@@ -425,11 +425,11 @@ class BacktestComparator(Backtester):
                 cum_mix_ = alloc.loc[date]
                 
             elif date in alloc.index:
-                cum_mix_ = model[i_date-1] * (1+r_mix.loc[date])
+                cum_mix_ = mixed[i_date-1] * (1+r_mix.loc[date])
                 cum_mix_ = alloc.loc[date] * cum_mix_.sum()
                 
             else:
-                cum_mix_ = model[i_date-1] * (1+r_mix.loc[date])
+                cum_mix_ = mixed[i_date-1] * (1+r_mix.loc[date])
                 
             cum_mix_['sum'] = cum_mix_.sum()
             mixed.append(cum_mix_)
