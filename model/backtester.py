@@ -163,7 +163,7 @@ class BacktesterBase(object):
             
             pltr.plot_stats(self.stats, strats, items, **params)
         
-        elif style='normal':
+        elif style=='normal':
             items = {
                 'cagr': 'CAGR(%)', 
                 'std': 'Standard dev(%)', 
