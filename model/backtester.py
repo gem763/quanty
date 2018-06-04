@@ -163,6 +163,21 @@ class BacktesterBase(object):
             
             pltr.plot_stats(self.stats, strats, items, **params)
         
+        elif style='normal':
+            items = {
+                'cagr': 'CAGR(%)', 
+                'std': 'Standard dev(%)', 
+                'sharpe': 'Sharpe', 
+                'mdd': 'MDD(%)', 
+                'hit': 'Hit ratio(%,1M)', 
+                'profit_to_loss': 'Profit-to-loss(%,1M)', #'평균손익비(%,1M)', 
+                'beta': 'Beta(vs.' + self.beta_to + ')',
+                'loss_proba': 'Loss probability(%,1Y)', #'손실확률(%,1Y)', 
+                'consistency': 'Consistency(%)',
+            }
+            
+            pltr.plot_stats(self.stats, strats, items, **params)
+            
         elif style=='simple':
             items = {
                 'cagr': 'CAGR(%)', 
