@@ -383,8 +383,7 @@ class Backtester(BacktesterBase):
         nav_ = value_ + cash_
         return eq_value_, value_, nav_
 
-        
-        
+                
         
 class BacktestComparator(Backtester):
     def __init__(self, params, **backtests):
@@ -408,7 +407,37 @@ class BacktestComparator(Backtester):
                 
         return cum, stats
         
-    
+        
+    def mix(self):
+        self.cum = self.cum.fillna(method='ffill')
+        r_mix = self.cum[list(self.backtests.keys())].pct_change()
+        std_mix = r_mix.ewm(halflife=250, min_periods=20).std()
+        
+        dates_asof = list(self.backtests.values())[0].dates_asof
+        alloc = 1.0 / std_mix.loc[dates_asof]
+        alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(0.25)
+        
+        mixed = []
+        
+        for i_date, date in enumerate(self.cum.index):
+            
+            if i_date==0:
+                cum_mix_ = alloc.loc[date]
+                
+            elif date in alloc.index:
+                cum_mix_ = model[i_date-1] * (1+r_mix.loc[date])
+                cum_mix_ = alloc.loc[date] * cum_mix_.sum()
+                
+            else:
+                cum_mix_ = model[i_date-1] * (1+r_mix.loc[date])
+                
+            cum_mix_['sum'] = cum_mix_.sum()
+            mixed.append(cum_mix_)
+            
+        mixed = pd.DataFrame(mixed, index=self.cum.index)
+        self.cum['mixed'] = mixed
+        
+        
     def plot_stats_pool(self, **params):
         items = {
             'cagr': 'CAGR(%)', 
