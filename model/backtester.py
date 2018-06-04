@@ -435,7 +435,7 @@ class BacktestComparator(Backtester):
             mixed.append(cum_mix_)
             
         mixed = pd.DataFrame(mixed, index=self.cum.index)
-        self.cum['mixed'] = mixed
+        self.cum['mixed'] = mixed['sum']
         
         
     def plot_stats_pool(self, **params):
