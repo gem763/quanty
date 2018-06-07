@@ -1,15 +1,20 @@
 import numpy as np
 import pandas as pd
 from ..model import evaluator as ev
+from IPython.core.debugger import set_trace
 
 
 class Portfolio(object):
-    def __init__(self, w_type, cash_equiv, p_close, iv_period, apply_kelly):
+    def __init__(self, w_type, cash_equiv, p_close, iv_period, apply_kelly, r, bm, safety_ratio, te_target):
         self.w_type = w_type
         self.cash_equiv = cash_equiv
         self.p_close = p_close
         self.iv_period = iv_period
         self.apply_kelly = apply_kelly
+        self.r = r
+        self.bm = bm
+        self.safety_ratio = safety_ratio
+        self.te_target = te_target
         
         
     def get(self, selection, date, sig, ranks, wealth, model_rtn):
@@ -36,7 +41,6 @@ class Portfolio(object):
             # 이 종목은 변동성이 매우 작을 것이므로, 제거한다
             has_enough = pd.Series({k:df[k].nunique() for k in df}) > self.iv_period/2.0
             std = df[has_enough.index[has_enough]].pct_change().std()
-            #std = df.pct_change().std()
             pos = selection / std
 
         # Normalize
@@ -53,8 +57,55 @@ class Portfolio(object):
         weight.loc[self.cash_equiv] = 0.0
         weight.loc[self.cash_equiv] = 1.0 - weight.sum()
         
-        return weight, pos, kelly_output
+        te_hist = self._get_te_hist(date, wealth)
+        te_exante = self._get_te_exante(date, weight)
+        
+        d = 250
+        d_h = np.min([230, len(wealth)])
+        d_f = 250 - d_h
+        
+        eta = (d*((self.safety_ratio*self.te_target)**2) - d_h*(te_hist**2)) / (d_f*(te_exante**2))
+        #eta = (d * (self.safety_ratio*self.te_target)**2) / (d * (te_exante**2))
+        #eta = eta**0.5
+        
+        if eta<0:
+            eta = 0
+        elif eta>1:
+            eta = 1
+        else:
+            eta = eta**0.5
+        
+        #eta = eta**0.5 if eta<1.0 else 1.0
+        #set_trace()
+        weight = weight.mul(eta, fill_value=0)
+        if self.bm in weight.index:
+            weight[self.bm] += (1-eta)
+        else:
+            weight[self.bm] = (1-eta)
+        
+        return weight, pos, kelly_output, te_hist, te_exante, eta
 
+    
+    def _get_te_exante(self, date, weight):
+        #set_trace()
+        w_p = weight[weight!=0]
+        if self.bm not in w_p.index: w_p[self.bm] = 0
+        w_bm = pd.Series({self.bm:1.0}, index=w_p.index).fillna(0)
+        cov = self.r.loc[self.r.index<date, w_p.index].iloc[-250:].cov() * 250
+        w_diff = w_p - w_bm
+        return w_diff.T.dot(cov.dot(w_diff))**0.5
+    
+    
+    def _get_te_hist(self, date, wealth):
+        if len(wealth)==0:
+            return 0
+        
+        else:
+            p_port = np.array(wealth)[-1:-1-251:-1,-1][::-1]
+            r_port = p_port[1:] / p_port[:-1] - 1.0
+            r_bm = self.r.loc[self.r.index<date, self.bm].iloc[-len(r_port):]
+            #set_trace()
+            return np.nanstd(r_port-r_bm) * (250**0.5)
     
     
     def _get_kelly_fraction(self, date, wealth, model_rtn):

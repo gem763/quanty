@@ -37,8 +37,8 @@ class BacktesterBase(object):
         self.__dict__.update(params)
         self.dates, self.dates_asof = self._get_dates()
         self.p, self.p_ref, self.p_close, self.p_buy, self.p_sell, self.r = self._prices()
-        self.dm = dm(**params, p_ref=self.p_ref, p_close=self.p_close, dates_asof=self.dates_asof)
-        self.port = port(self.w_type, self.cash_equiv, self.p_close, self.iv_period, self.apply_kelly)
+        self.dm = dm(**params, p_ref=self.p_ref, dates_asof=self.dates_asof, p_close=self.p_close)
+        self.port = port(self.w_type, self.cash_equiv, self.p_close, self.iv_period, self.apply_kelly, self.r, self.bm, self.safety_ratio, self.te_target)
         
         
         # 백테스트
@@ -57,16 +57,18 @@ class BacktesterBase(object):
         
     def _run(self):
         raise NotImplementedError
-        
-                
+
+
     def _prices(self):    
         data_unstacked = self.data.unstack().loc[:self.end].fillna(method='ffill')
         
         assets = set(self.assets_member.values.flatten())
         assets.update({self.beta_to, self.cash_equiv})
+        if self.bm is not None: assets.update({self.bm})
         
         assets_bet = set(self.assets_member.bet)
         assets_bet.update({self.cash_equiv})
+        if self.bm is not None: assets_bet.update({self.bm})
         
         p = data_unstacked[self.perf_src].reindex(columns=assets)
         p_ref = data_unstacked[self.ref_src].reindex(columns=self.assets_member.ref)
@@ -252,6 +254,9 @@ class Backtester(BacktesterBase):
         self.weight = []  # 최종비중 (켈리반영)
         self.kelly = []
         self.selection = []
+        self.te_hist = []
+        self.te_exante = []
+        self.eta = []
         
         for date in tqdm(self.dates):
             if date in self.p.index: 
@@ -270,7 +275,7 @@ class Backtester(BacktesterBase):
 
             # 1. 리밸런싱 비중결정하는 날
             elif date in self.dates_asof:
-                weight_, pos_, trade_due, kelly_output = self._positionize(date, weight_, trade_due)
+                weight_, pos_, trade_due, kelly_output, te_hist_, te_exante_, eta_ = self._positionize(date, weight_, trade_due)
                 pos_d_, model_rtn_, model_contr_ = self._update_pos_daily(date, pos_d_)
                 
                 #self.sig.append(sig_)
@@ -278,6 +283,9 @@ class Backtester(BacktesterBase):
                 self.weight.append(weight_)
                 self.pos.append(pos_)
                 self.kelly.append(kelly_output)
+                self.te_hist.append(te_hist_)
+                self.te_exante.append(te_exante_)
+                self.eta.append(eta_)
                 #self.selection.append(selection_)
                 
               
@@ -305,6 +313,9 @@ class Backtester(BacktesterBase):
         self.pos = pd.DataFrame(self.pos, index=self.dates_asof)
         self.kelly = pd.DataFrame(self.kelly, index=self.dates_asof)
         self.selection = pd.DataFrame(self.selection, index=self.dates_asof)
+        self.te_hist = pd.DataFrame(self.te_hist, index=self.dates_asof)
+        self.te_exante = pd.DataFrame(self.te_exante, index=self.dates_asof)
+        self.eta = pd.DataFrame(self.eta, index=self.dates_asof)
         
         # Daily Booking
         self.hold = pd.DataFrame(self.hold, index=self.dates)
@@ -379,12 +390,13 @@ class Backtester(BacktesterBase):
 
     def _positionize(self, date, weight_asis_, trade_due):
         selection_, sig_, ranks_ = self.dm.selection.loc[date], self.dm.sig.loc[date], self.dm.ranks.loc[date]
-        weight_, pos_, kelly_output = self.port.get(selection_, date, sig_, ranks_, self.wealth, self.model_rtn)
+        #if date>pd.Timestamp('2005-01-01'): set_trace()
+        weight_, pos_, kelly_output, te_hist_, te_exante_, eta_ = self.port.get(selection_, date, sig_, ranks_, self.wealth, self.model_rtn)
         
         if weight_.sub(weight_asis_, fill_value=0).abs().sum()!=0:
             trade_due = self.trade_delay
 
-        return weight_, pos_, trade_due, kelly_output
+        return weight_, pos_, trade_due, kelly_output, te_hist_, te_exante_, eta_
 
 
     def _evaluate(self, date, hold_, cash_):

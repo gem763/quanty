@@ -77,7 +77,7 @@ class DualMomentum(object):
         self.i_ref = self.p_ref.index.get_indexer(dates_ref, method='ffill')
         self.i_dates = self.p_ref.index.get_indexer(self.dates_asof, method='ffill')
         self.p_ref_val = self.p_ref.values
-        self.p_close_val = self.p_close.values
+        #self.p_close_val = self.p_close.values
         self.sig_w = self.sig_w.reshape(-1,1)
         
         self.sig, self.is_tradable = self._signal()
