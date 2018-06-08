@@ -5,7 +5,7 @@ from IPython.core.debugger import set_trace
 
 
 class Portfolio(object):
-    def __init__(self, w_type, cash_equiv, p_close, iv_period, apply_kelly, r, bm, safety_ratio, te_target):
+    def __init__(self, w_type, cash_equiv, p_close, iv_period, apply_kelly, r, bm, safety_buffer, te_target):
         self.w_type = w_type
         self.cash_equiv = cash_equiv
         self.p_close = p_close
@@ -13,7 +13,7 @@ class Portfolio(object):
         self.apply_kelly = apply_kelly
         self.r = r
         self.bm = bm
-        self.safety_ratio = safety_ratio
+        self.safety_buffer = safety_buffer
         self.te_target = te_target
         
         
@@ -53,47 +53,75 @@ class Portfolio(object):
         #if self._is_tradable(date, self.cash_equiv):# and self.fill_cash:
         pos.loc[self.cash_equiv] = 0.0
         pos.loc[self.cash_equiv] = 1.0 - pos.sum()
-                
+
         weight.loc[self.cash_equiv] = 0.0
         weight.loc[self.cash_equiv] = 1.0 - weight.sum()
+
         
-        te_hist = self._get_te_hist(date, wealth)
-        te_exante = self._get_te_exante(date, weight)
+        if self.te_target is not None:
+            te_hist = self._get_te_hist(date, wealth)
+            te_exante = self._get_te_exante(date, weight, 250)
+            #te_exante_short = self._get_te_exante_ewm(date, weight, 250)
+            te_exante_short = self._get_te_exante(date, weight, 20)
+
+            k = 0.3
+            d = 250
+            d_h = np.min([230, len(wealth)])
+            d_f = 250 - d_h
+
+            if te_exante==0:
+                eta = 1
+            else:
+                eta = (d*((self.safety_buffer*self.te_target)**2) - d_h*(te_hist**2)) / (d_f*(te_exante**2))
+
+            if te_exante_short==0:
+                eta_max = 1
+            else:
+                eta_max = np.min([self.safety_buffer*self.te_target / te_exante_short, 1])
+
+
+            if eta<k:
+                eta = (k**0.5) * np.exp(eta/(2*k) - 0.5)
+
+            elif eta>1:
+                eta = 1
+
+            else:
+                eta = eta**0.5
+
+            eta = np.min([eta, eta_max])
+            weight = weight.mul(eta, fill_value=0)
+            
+            if self.bm in weight.index:
+                weight[self.bm] += (1-eta)
+            else:
+                weight[self.bm] = (1-eta)
         
-        d = 250
-        d_h = np.min([230, len(wealth)])
-        d_f = 250 - d_h
-        
-        eta = (d*((self.safety_ratio*self.te_target)**2) - d_h*(te_hist**2)) / (d_f*(te_exante**2))
-        #eta = (d * (self.safety_ratio*self.te_target)**2) / (d * (te_exante**2))
-        #eta = eta**0.5
-        
-        if eta<0:
-            eta = 0
-        elif eta>1:
+        else:
             eta = 1
-        else:
-            eta = eta**0.5
-        
-        #eta = eta**0.5 if eta<1.0 else 1.0
-        #set_trace()
-        weight = weight.mul(eta, fill_value=0)
-        if self.bm in weight.index:
-            weight[self.bm] += (1-eta)
-        else:
-            weight[self.bm] = (1-eta)
-        
-        return weight, pos, kelly_output, te_hist, te_exante, eta
+                
+        return weight, pos, kelly_output, eta
 
     
-    def _get_te_exante(self, date, weight):
+    def _get_te_exante(self, date, weight, n_period):
+        w_p = weight[weight!=0]
+        if self.bm not in w_p.index: w_p[self.bm] = 0
+        w_bm = pd.Series({self.bm:1.0}, index=w_p.index).fillna(0)
+        cov = self.r.loc[self.r.index<date, w_p.index].iloc[-n_period:].cov() * 250
+        w_diff = w_p - w_bm
+        return w_diff.T.dot(cov.dot(w_diff))**0.5
+    
+
+    def _get_te_exante_ewm(self, date, weight, halflife):
         #set_trace()
         w_p = weight[weight!=0]
         if self.bm not in w_p.index: w_p[self.bm] = 0
         w_bm = pd.Series({self.bm:1.0}, index=w_p.index).fillna(0)
-        cov = self.r.loc[self.r.index<date, w_p.index].iloc[-250:].cov() * 250
+        cov = self.r.loc[self.r.index<date, w_p.index].iloc[-halflife:].ewm(halflife=halflife).cov()
+        cov = cov.loc[cov.index.levels[0][-1]]* 250
         w_diff = w_p - w_bm
-        return w_diff.T.dot(cov.dot(w_diff))**0.5
+        return w_diff.T.dot(cov.dot(w_diff))**0.5    
+    
     
     
     def _get_te_hist(self, date, wealth):
