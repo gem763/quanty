@@ -38,7 +38,8 @@ class BacktesterBase(object):
         self.dates, self.dates_asof = self._get_dates()
         self.p, self.p_ref, self.p_close, self.p_buy, self.p_sell, self.r = self._prices()
         self.dm = dm(**params, p_ref=self.p_ref, dates_asof=self.dates_asof, p_close=self.p_close)
-        self.port = port(self.w_type, self.cash_equiv, self.p_close, self.iv_period, self.apply_kelly, self.r, self.bm, self.safety_buffer, self.te_target)
+        #self.port = port(self.w_type, self.cash_equiv, self.p_close, self.iv_period, self.apply_kelly, self.r, self.bm, self.safety_buffer, self.te_target)
+        self.port = port(**params, p_close=self.p_close, r=self.r)
         
         
         # 백테스트

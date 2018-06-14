@@ -5,16 +5,18 @@ from IPython.core.debugger import set_trace
 
 
 class Portfolio(object):
-    def __init__(self, w_type, cash_equiv, p_close, iv_period, apply_kelly, r, bm, safety_buffer, te_target):
-        self.w_type = w_type
-        self.cash_equiv = cash_equiv
-        self.p_close = p_close
-        self.iv_period = iv_period
-        self.apply_kelly = apply_kelly
-        self.r = r
-        self.bm = bm
-        self.safety_buffer = safety_buffer
-        self.te_target = te_target
+    #def __init__(self, w_type, cash_equiv, p_close, iv_period, apply_kelly, r, bm, safety_buffer, te_target):
+    def __init__(self, **params):
+        self.__dict__.update(**params)
+        #self.w_type = w_type
+        #self.cash_equiv = cash_equiv
+        #self.p_close = p_close
+        #self.iv_period = iv_period
+        #self.apply_kelly = apply_kelly
+        #self.r = r
+        #self.bm = bm
+        #self.safety_buffer = safety_buffer
+        #self.te_target = te_target
         
         
     def get(self, selection, date, sig, ranks, wealth, model_rtn):
@@ -62,7 +64,6 @@ class Portfolio(object):
             te_hist = self._get_te_hist(date, wealth)
             te_exante = self._get_te_exante(date, weight, 250)
             #te_exante_short = self._get_te_exante_ewm(date, weight, 250)
-            te_exante_short = self._get_te_exante(date, weight, 20)
 
             k = 0.3
             d = 250
@@ -74,22 +75,31 @@ class Portfolio(object):
             else:
                 eta = (d*((self.safety_buffer*self.te_target)**2) - d_h*(te_hist**2)) / (d_f*(te_exante**2))
 
-            if te_exante_short==0:
-                eta_max = 1
-            else:
-                eta_max = np.min([self.safety_buffer*self.te_target / te_exante_short, 1])
 
-
-            if eta<k:
+            if self.te_smoother and eta<k:
                 eta = (k**0.5) * np.exp(eta/(2*k) - 0.5)
 
+            elif (not self.te_smoother) and eta<0:
+                eta = 0
+                
             elif eta>1:
                 eta = 1
 
             else:
                 eta = eta**0.5
 
-            eta = np.min([eta, eta_max])
+            
+            if self.te_short_target_cap:
+                te_exante_short = self._get_te_exante(date, weight, 20)
+
+                if te_exante_short==0:
+                    eta_max = 1
+                else:
+                    eta_max = np.min([self.safety_buffer*self.te_target / te_exante_short, 1])
+                
+                eta = np.min([eta, eta_max])
+                
+                
             weight = weight.mul(eta, fill_value=0)
             
             if self.bm in weight.index:
