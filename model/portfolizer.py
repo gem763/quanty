@@ -20,7 +20,7 @@ class Portfolio(object):
         
         
     def get(self, selection, date, sig, ranks, wealth, model_rtn):
-        
+
         if self.w_type=='ew':
             pos = selection
 
@@ -44,13 +44,29 @@ class Portfolio(object):
             has_enough = pd.Series({k:df[k].nunique() for k in df}) > self.iv_period/2.0
             std = df[has_enough.index[has_enough]].pct_change().std()
             pos = selection / std
+            
+        elif self.w_type=='eaa':       
+            ws = 0.5
+            wc = 1.0
+            pr = self.p_close
+            rt = pr.loc[pr.index<date, selection.index].iloc[-251:].pct_change().iloc[1:]
+            rt_ew = rt.mean(axis=1)
+            cor = rt.corrwith(rt_ew)
+            #cor = rt.cov().dot(np.ones(len(selection)))/rt.std()/((rt.cov().sum().sum())**0.5)
+            pos = selection * ((sig[sig>0] * ((1-cor)**wc))**ws)
+            
 
+        #if len(sig)-sum(sig>0)!=0 and date>pd.Timestamp('2008-10-10'):
+        #    set_trace()
+        
+        
         # Normalize
         pos /= pos.sum()
         
         # position scaling by kelly fraction
         kelly_output = self._get_kelly_fraction(date, wealth, model_rtn)
-        weight = pos.mul(kelly_output['fr'], fill_value=0)
+        #weight = pos.mul(kelly_output['fr'], fill_value=0)
+        weight = pos.mul(sum(sig>0)/float(len(sig)), fill_value=0)
         
         #if self._is_tradable(date, self.cash_equiv):# and self.fill_cash:
         pos.loc[self.cash_equiv] = 0.0
