@@ -17,6 +17,8 @@ class Portfolio(object):
         #self.bm = bm
         #self.safety_buffer = safety_buffer
         #self.te_target = te_target
+        self.wr = []
+        self.wc = []
         
         
     def get(self, selection, date, sig, ranks, wealth, model_rtn):
@@ -45,28 +47,64 @@ class Portfolio(object):
             std = df[has_enough.index[has_enough]].pct_change().std()
             pos = selection / std
             
-        elif self.w_type=='eaa':       
-            ws = 0.5
-            wc = 1.0
+            
+        elif self.w_type=='eaa':    
             pr = self.p_close
             rt = pr.loc[pr.index<date, selection.index].iloc[-251:].pct_change().iloc[1:]
             rt_ew = rt.mean(axis=1)
             cor = rt.corrwith(rt_ew)
-            #cor = rt.cov().dot(np.ones(len(selection)))/rt.std()/((rt.cov().sum().sum())**0.5)
-            pos = selection * ((sig[sig>0] * ((1-cor)**wc))**ws)
+            sig_ = sig[selection!=0]
+            sig_[~(sig_>0)] = sig_[sig_>0].mean()
+            pos = selection * ((sig_**self.eaa_wr) * ((1-cor)**self.eaa_wc))
+            
+            
+        elif self.w_type=='eaa_optima': 
+            pr = self.p_close
+            rt = pr.loc[pr.index<date, selection.index].iloc[-251:].pct_change().iloc[1:]
+            rt_ew = rt.mean(axis=1)
+            cor = rt.corrwith(rt_ew)
+
+            wrs = np.linspace(-5,5,11)
+            wcs = np.array([1])
+            rt_short = rt.iloc[-20:]
+            
+            sig_ = sig[selection!=0]
+            sig_[~(sig_>0)] = sig_[sig_>0].mean()
+            #sig_ -= sig.loc[self.riskfree]
+            #cor = rt_short.cov().dot(np.ones(len(selection)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
+            
+            
+            def score_(wr_, wc_):
+                pos_ = selection * ((sig_**wr_) * ((1-cor)**wc_))
+                pos_.fillna(0, inplace=True)
+                #pos_ /= pos_.sum() 
+                #rt_expected = (sig_ * pos_).sum()
+                rt_expected = (rt_short.sum() * pos_).sum()
+                #vol = (pos_.T.dot(rt.cov()).dot(pos_))**0.5
+                return rt_expected# / vol#- (pos_**2).sum()
+            
+            candidates = np.array([[score_(wr_, wc_) for wc_ in wcs] for wr_ in wrs])
+            i_wr, i_wc = np.unravel_index(candidates.argmax(), candidates.shape)
+            wr = wrs[i_wr]
+            wc = wcs[i_wc]
+            self.wr.append(wr)
+            self.wc.append(wc)
+            
+            pos = selection * ((sig_**wr) * ((1-cor)**wc))
             
 
-        #if len(sig)-sum(sig>0)!=0 and date>pd.Timestamp('2008-10-10'):
-        #    set_trace()
-        
         
         # Normalize
         pos /= pos.sum()
         
         # position scaling by kelly fraction
         kelly_output = self._get_kelly_fraction(date, wealth, model_rtn)
-        #weight = pos.mul(kelly_output['fr'], fill_value=0)
-        weight = pos.mul(sum(sig>0)/float(len(sig)), fill_value=0)
+        
+        if self.apply_cp:
+            weight = pos.mul(sum(sig>0)/float(len(sig)), fill_value=0)
+        else:
+            weight = pos.mul(kelly_output['fr'], fill_value=0)
+        
         
         #if self._is_tradable(date, self.cash_equiv):# and self.fill_cash:
         pos.loc[self.cash_equiv] = 0.0

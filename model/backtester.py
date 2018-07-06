@@ -150,43 +150,43 @@ class BacktesterBase(object):
     def plot_stats(self, strats, style=None, **params):
         if style is None:
             items = {
-                'cagr': 'CAGR(%)', 
-                'std': 'Standard dev(%)', 
+                'cagr': 'CAGR (%)', 
+                'std': 'Volatility (%)', 
                 'sharpe': 'Sharpe', 
-                'cagr_roll_med': 'CAGR(%,Rolling1Y)', 
-                'std_roll_med': 'Standard dev(%,Rolling1Y)', 
-                'sharpe_roll_med': 'Sharpe(Rolling1Y)', 
-                'mdd': 'MDD(%)', 
-                'hit': 'Hit ratio(%,1M)', 
-                'profit_to_loss': 'Profit-to-loss(%,1M)', #'평균손익비(%,1M)', 
-                'beta': 'Beta(vs.' + self.beta_to + ')',
-                'loss_proba': 'Loss probability(%,1Y)', #'손실확률(%,1Y)', 
-                'consistency': 'Consistency(%)',
+                'cagr_roll_med': 'CAGR (%,Rolling1Y)', 
+                'std_roll_med': 'Volatility (%,Rolling1Y)', 
+                'sharpe_roll_med': 'Sharpe (Rolling1Y)', 
+                'mdd': 'MDD (%)', 
+                'hit': 'Hit ratio (%,1M)', 
+                'profit_to_loss': 'Profit-to-loss (%,1M)', #'평균손익비(%,1M)', 
+                'beta': 'Beta (vs.' + self.beta_to + ')',
+                'loss_proba': 'Loss probability (%,1Y)', #'손실확률(%,1Y)', 
+                'consistency': 'Consistency (%)',
             }
             
             pltr.plot_stats(self.stats, strats, items, **params)
         
         elif style=='normal':
             items = {
-                'cagr': 'CAGR(%)', 
-                'std': 'Standard dev(%)', 
+                'cagr': 'CAGR (%)', 
+                'std': 'Volatility (%)', 
                 'sharpe': 'Sharpe', 
-                'mdd': 'MDD(%)', 
-                'hit': 'Hit ratio(%,1M)', 
-                'profit_to_loss': 'Profit-to-loss(%,1M)', #'평균손익비(%,1M)', 
-                'beta': 'Beta(vs.' + self.beta_to + ')',
-                'loss_proba': 'Loss probability(%,1Y)', #'손실확률(%,1Y)', 
-                'consistency': 'Consistency(%)',
+                'mdd': 'MDD (%)', 
+                'hit': 'Hit ratio (%,1M)', 
+                'profit_to_loss': 'Profit-to-loss (%,1M)', #'평균손익비(%,1M)', 
+                'beta': 'Beta (vs.' + self.beta_to + ')',
+                'loss_proba': 'Loss probability (%,1Y)', #'손실확률(%,1Y)', 
+                'consistency': 'Consistency (%)',
             }
             
             pltr.plot_stats(self.stats, strats, items, **params)
             
         elif style=='simple':
             items = {
-                'cagr': 'CAGR(%)', 
-                'std': 'Standard dev(%)', 
+                'cagr': 'CAGR (%)', 
+                'std': 'Volatility (%)', 
                 'sharpe': 'Sharpe', 
-                'mdd': 'MDD(%)', 
+                'mdd': 'MDD (%)', 
             }          
         
             pltr.plot_stats(self.stats, strats, items, ncols=4, **params)

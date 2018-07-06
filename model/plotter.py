@@ -35,6 +35,7 @@ class Plotter(object):
 
         ax.yaxis.set_major_formatter(ScalarFormatter())
         ax.set_xlabel('')
+        ax.set_title('Cumulative Return', fontsize=15, weight='bold')
 
         legend_fsize = 12
         if names: ax.legend(names, fontsize=legend_fsize)
@@ -136,8 +137,8 @@ class Plotter(object):
 
 
     @classmethod
-    def plot_stats(cls, stats, strats, items, names=None, color=None, lim=None, ncols=3):
-        height_strats = 0.6 # 전략별 bar 높이
+    def plot_stats(cls, stats, strats, items, names=None, color=None, lim=None, ncols=3, hbar=0.6, hspace=0.7):
+        height_strats = hbar # 전략별 bar 높이
         n_items = len(items)
         n_cols = ncols
         n_rows = int(np.ceil(n_items/float(n_cols)))
@@ -147,22 +148,27 @@ class Plotter(object):
         if names: stats_.index = names
         if color: color = [color] * n_items
 
-        ax = stats_.plot.barh(
-            subplots=True, legend=False, sharex=False, sharey=True, width=0.8,
-            figsize=(fig_width, height_strats*len(strats)*n_rows), 
-            layout=(n_rows, n_cols), 
+            
+        fig, ax = plt.subplots(n_rows, n_cols, figsize=(fig_width, height_strats*len(strats)*n_rows), sharex=False, sharey=True);
+        
+        stats_.plot.barh(
+            subplots=True, legend=False, width=0.8, #sharex=False, sharey=True, 
+            #figsize=(fig_width, height_strats*len(strats)*n_rows), 
+            #layout=(n_rows, n_cols), 
             title=items.values(), 
             color=color, 
             edgecolor='k', 
             lw=1,
             #xerr=err_value, 
+            ax=ax, 
         )
 
         for i, ax_ in enumerate(ax.flatten()):
             if lim: ax_.set_xlim(lim[i])
             ax_.axvline(0, color='k', linestyle='-', linewidth=1)
 
-        plt.subplots_adjust(hspace=0.7)#1.5)
+        plt.subplots_adjust(hspace=hspace)
+        fig.suptitle('Statistics', fontsize=15, weight='bold', y=0.94)
 
 
     @classmethod
