@@ -6,7 +6,7 @@ from pandas.tseries.offsets import Day
 from IPython.core.debugger import set_trace
 from collections import namedtuple, OrderedDict
 from numba import jit, float64, types
-from tqdm import tqdm
+from tqdm import tqdm, tqdm_notebook
 
 # Custom modules
 from .plotter import Plotter as pltr
@@ -259,7 +259,7 @@ class Backtester(BacktesterBase):
         #self.te_exante = []
         self.eta = []
         
-        for date in tqdm(self.dates):
+        for date in tqdm_notebook(self.dates):
             if date in self.p.index: 
                 trade_due -= 1
                 
