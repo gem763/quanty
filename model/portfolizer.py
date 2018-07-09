@@ -46,27 +46,8 @@ class Portfolio(object):
             has_enough = pd.Series({k:df[k].nunique() for k in df}) > self.iv_period/2.0
             std = df[has_enough.index[has_enough]].pct_change().std()
             pos = selection / std
-            
-            
-        elif self.w_type=='eaa_true':
-            pr = self.p_close
-            rt = pr.loc[pr.index<date, sig.index].iloc[-251:].pct_change().iloc[1:]
-            #rt_short = rt.iloc[-20:]
-            rt_ew = rt.mean(axis=1)
-            cor = rt.corrwith(rt_ew)
-            #cor = rt_short.cov().dot(np.ones(len(sig)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
-            
-            #sig -= sig[self.cash_equiv]
-            eaa_wr = self.eaa_wr + 1e-6 if self.eaa_wr==0 else self.eaa_wr
-            score = (sig**eaa_wr) * ((1-cor)**self.eaa_wc)
-            ranks = score.rank(ascending=False, na_option='bottom')
-            sel = (sig>0) & (score>0) & (ranks<1+self.n_picks)
-            sel = sel.astype(int)
-            sel.loc[self.cash_equiv] += (self.n_picks - sel.sum())
-            
-            pos = sel * score
-
-            
+           
+        
         elif self.w_type=='eaa_true_optima':
             pr = self.p_close
             rt = pr.loc[pr.index<date, sig.index].iloc[-251:].pct_change().iloc[1:]
@@ -74,51 +55,73 @@ class Portfolio(object):
             cor = rt.corrwith(rt_ew)
 
             wrs = np.linspace(-3,3,7)
-            wcs = np.linspace(-3,3,7)
-            rt_short = rt.iloc[-250:]            
+            wcs = np.array([0]) #np.linspace(-3,3,7)
+            rt_short = rt.iloc[-20:]            
 
-            #sig[~(sig>0)] = sig[sig>0].mean()            
-            
-            #sig -= sig[self.cash_equiv]
-            std = rt_short.std()
+            sig_ = sig.copy()
+            sig_[sig_<0] = 0
+            #std = rt_short.std()
             
             def score_(wr_, wc_):
-                wr_ = wr_ + 1e-6 if wr_==0 else wr_
-                score = ((sig**wr_) * ((1-cor))) / (std**wc_)
+                wr_ = 1e-6 if wr_==0 else wr_
+                score = ((sig_**wr_) * ((1-cor)**wc_))
                 ranks = score.rank(ascending=False, na_option='bottom')
-                sel = (sig>0) & (score>0) & (ranks<1+self.n_picks)
+                sel = (sig_>0) & (score>0) & (ranks<1+self.n_picks)
                 sel = sel.astype(int)
                 sel.loc[self.cash_equiv] += (self.n_picks - sel.sum())
-                pos_ = sel * score            
+                pos_ = sel * score
                 pos_.fillna(0, inplace=True)
                 pos_ /= pos_.sum() 
-                rt_expected = (score * pos_).sum()
+                rt_expected = (sig_ * pos_).sum()
                 #rt_expected = (sig * pos_).sum()
                 #rt_expected = (rt_short.sum() * pos_).sum()
-                #vol = (pos_.T.dot(rt_short.cov()).dot(pos_))**0.5
-                return rt_expected# / vol#- (pos_**2).sum()
+                vol = (pos_.T.dot(rt_short.cov()).dot(pos_))**0.5
+                return rt_expected / vol#- (pos_**2).sum()
             
             candidates = np.array([[score_(wr_, wc_) for wc_ in wcs] for wr_ in wrs])
             i_wr, i_wc = np.unravel_index(candidates.argmax(), candidates.shape)
             wr = wrs[i_wr]
             wc = wcs[i_wc]
          
-            wr = wr + 1e-6 if wr==0 else wr
-            score = ((sig**wr) * ((1-cor))) / (std**wc)
+            wr = 1e-6 if wr==0 else wr
+            score = ((sig**wr) * ((1-cor)**wc))
             ranks = score.rank(ascending=False, na_option='bottom')
-            sel = (sig>0) & (score>0) & (ranks<1+self.n_picks)
+            sel = (sig_>0) & (score>0) & (ranks<1+self.n_picks)
             sel = sel.astype(int)
             sel.loc[self.cash_equiv] += (self.n_picks - sel.sum())
-            pos = sel * score            
+            pos = sel * score
             pos.fillna(0, inplace=True)            
 
             self.wr.append(wr)
             self.wc.append(wc)
             
-            
-            
+
             
         elif self.w_type=='eaa':
+            #if date==pd.Timestamp('2009-06-30'): set_trace()
+            pr = self.p_close
+            rt = pr.loc[pr.index<date, sig.index].iloc[-251:].pct_change().iloc[1:]
+            #rt_short = rt.iloc[-20:]
+            rt_ew = rt.mean(axis=1)
+            cor = rt.corrwith(rt_ew)
+            #cor = rt_short.cov().dot(np.ones(len(sig)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
+            
+            #sig -= sig[self.riskfree]
+            
+            sig_ = sig.copy()
+            sig_[sig_<0] = 0
+            
+            eaa_wr = 1e-6 if self.eaa_wr==0 else self.eaa_wr
+            score = (sig_**eaa_wr) * ((1-cor)**self.eaa_wc)
+            ranks = score.rank(ascending=False, na_option='bottom')
+            sel = (sig_>0) & (score>0) & (ranks<1+self.n_picks)
+            sel = sel.astype(int)
+            sel.loc[self.cash_equiv] += (self.n_picks - sel.sum())
+            pos = sel * score
+
+            
+            
+        elif self.w_type=='eaa_mod':
             pr = self.p_close
             rt = pr.loc[pr.index<date, selection.index].iloc[-251:].pct_change().iloc[1:]
             rt_ew = rt.mean(axis=1)
@@ -134,12 +137,14 @@ class Portfolio(object):
             rt_ew = rt.mean(axis=1)
             cor = rt.corrwith(rt_ew)
 
-            wrs = np.linspace(-5,5,11)
+            n_grid = 2 * self.eaa_wr_bnd + 1
+            wrs = np.linspace(-self.eaa_wr_bnd, self.eaa_wr_bnd, n_grid)
             wcs = np.array([1])
             rt_short = rt.iloc[-20:]
             
             sig_ = sig[selection!=0]
-            sig_[~(sig_>0)] = sig_[sig_>0].mean()
+            #sig_[~(sig_>0)] = sig_[sig_>0].mean()
+            
             #sig_ -= sig.loc[self.riskfree]
             #cor = rt_short.cov().dot(np.ones(len(selection)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
             

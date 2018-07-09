@@ -486,7 +486,7 @@ class BacktestComparator(Backtester):
         backtests = OrderedDict()
         bt = namedtuple('bt', grid_keys)
         
-        for v in tqdm(grid_values):
+        for v in tqdm_notebook(grid_values):
             k = dict(zip(grid_keys, v))
             params.update(k)
             backtests[str(bt(**k))] = Backtester(params)
