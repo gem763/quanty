@@ -5,18 +5,9 @@ from IPython.core.debugger import set_trace
 
 
 class Portfolio(object):
-    #def __init__(self, w_type, cash_equiv, p_close, iv_period, apply_kelly, r, bm, safety_buffer, te_target):
+
     def __init__(self, **params):
         self.__dict__.update(**params)
-        #self.w_type = w_type
-        #self.cash_equiv = cash_equiv
-        #self.p_close = p_close
-        #self.iv_period = iv_period
-        #self.apply_kelly = apply_kelly
-        #self.r = r
-        #self.bm = bm
-        #self.safety_buffer = safety_buffer
-        #self.te_target = te_target
         self.wr = []
         self.wc = []
         
@@ -47,66 +38,14 @@ class Portfolio(object):
             std = df[has_enough.index[has_enough]].pct_change().std()
             pos = selection / std
            
-        
-        elif self.w_type=='eaa_true_optima':
-            pr = self.p_close
-            rt = pr.loc[pr.index<date, sig.index].iloc[-251:].pct_change().iloc[1:]
-            rt_ew = rt.mean(axis=1)
-            cor = rt.corrwith(rt_ew)
-
-            wrs = np.linspace(-3,3,7)
-            wcs = np.array([0]) #np.linspace(-3,3,7)
-            rt_short = rt.iloc[-20:]            
-
-            sig_ = sig.copy()
-            sig_[sig_<0] = 0
-            #std = rt_short.std()
-            
-            def score_(wr_, wc_):
-                wr_ = 1e-6 if wr_==0 else wr_
-                score = ((sig_**wr_) * ((1-cor)**wc_))
-                ranks = score.rank(ascending=False, na_option='bottom')
-                sel = (sig_>0) & (score>0) & (ranks<1+self.n_picks)
-                sel = sel.astype(int)
-                sel.loc[self.cash_equiv] += (self.n_picks - sel.sum())
-                pos_ = sel * score
-                pos_.fillna(0, inplace=True)
-                pos_ /= pos_.sum() 
-                rt_expected = (sig_ * pos_).sum()
-                #rt_expected = (sig * pos_).sum()
-                #rt_expected = (rt_short.sum() * pos_).sum()
-                vol = (pos_.T.dot(rt_short.cov()).dot(pos_))**0.5
-                return rt_expected / vol#- (pos_**2).sum()
-            
-            candidates = np.array([[score_(wr_, wc_) for wc_ in wcs] for wr_ in wrs])
-            i_wr, i_wc = np.unravel_index(candidates.argmax(), candidates.shape)
-            wr = wrs[i_wr]
-            wc = wcs[i_wc]
-         
-            wr = 1e-6 if wr==0 else wr
-            score = ((sig**wr) * ((1-cor)**wc))
-            ranks = score.rank(ascending=False, na_option='bottom')
-            sel = (sig_>0) & (score>0) & (ranks<1+self.n_picks)
-            sel = sel.astype(int)
-            sel.loc[self.cash_equiv] += (self.n_picks - sel.sum())
-            pos = sel * score
-            pos.fillna(0, inplace=True)            
-
-            self.wr.append(wr)
-            self.wc.append(wc)
-            
-
-            
+                    
         elif self.w_type=='eaa':
-            #if date==pd.Timestamp('2009-06-30'): set_trace()
             pr = self.p_close
             rt = pr.loc[pr.index<date, sig.index].iloc[-251:].pct_change().iloc[1:]
             #rt_short = rt.iloc[-20:]
             rt_ew = rt.mean(axis=1)
             cor = rt.corrwith(rt_ew)
             #cor = rt_short.cov().dot(np.ones(len(sig)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
-            
-            #sig -= sig[self.riskfree]
             
             sig_ = sig.copy()
             sig_[sig_<0] = 0
@@ -116,9 +55,8 @@ class Portfolio(object):
             ranks = score.rank(ascending=False, na_option='bottom')
             sel = (sig_>0) & (score>0) & (ranks<1+self.n_picks)
             sel = sel.astype(int)
-            sel.loc[self.cash_equiv] += (self.n_picks - sel.sum())
+            sel.loc[self._bet_of(self.cash_equiv)] += (self.n_picks - sel.sum())
             pos = sel * score
-
             
             
         elif self.w_type=='eaa_mod':
@@ -144,11 +82,8 @@ class Portfolio(object):
             
             sig_ = sig[selection!=0]
             #sig_[~(sig_>0)] = sig_[sig_>0].mean()
-            
-            #sig_ -= sig.loc[self.riskfree]
             #cor = rt_short.cov().dot(np.ones(len(selection)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
-            
-            
+          
             def score_(wr_, wc_):
                 pos_ = selection * ((sig_**wr_) * ((1-cor)**wc_))
                 pos_.fillna(0, inplace=True)
@@ -167,28 +102,17 @@ class Portfolio(object):
             
             pos = selection * ((sig_**wr) * ((1-cor)**wc))
             
-
         
         # Normalize
         pos /= pos.sum()
-        
-        # position scaling by kelly fraction
-        kelly_output = self._get_kelly_fraction(date, wealth, model_rtn)
-        
-        if self.apply_cp:
-            weight = pos.mul(sum(sig>0)/float(len(sig)), fill_value=0)
-        else:
-            weight = pos.mul(kelly_output['fr'], fill_value=0)
-        
-        
-        #if self._is_tradable(date, self.cash_equiv):# and self.fill_cash:
-        pos.loc[self.cash_equiv] = 0.0
-        pos.loc[self.cash_equiv] = 1.0 - pos.sum()
+        weight, pos = self._cash_control(date, pos, sig, wealth, model_rtn)
+        weight, eta = self._te_control(date, weight, wealth)
+                
+        return weight, pos, eta
 
-        weight.loc[self.cash_equiv] = 0.0
-        weight.loc[self.cash_equiv] = 1.0 - weight.sum()
-
-        
+    
+    
+    def _te_control(self, date, weight, wealth):
         if self.te_target is not None:
             te_hist = self._get_te_hist(date, wealth)
             te_exante = self._get_te_exante(date, weight, 250)
@@ -238,9 +162,38 @@ class Portfolio(object):
         
         else:
             eta = 1
+    
+        return weight, eta
+    
+    
+    
+    def _cash_control(self, date, pos, sig, wealth, model_rtn):
+       
+        if self.cm_method=='cp':
+            weight = pos.mul(sum(sig>0)/float(len(sig)), fill_value=0)
+            
+        elif self.cm_method=='kelly':
+            kelly_output = self._get_kelly_fraction(date, wealth, model_rtn)
+            weight = pos.mul(kelly_output['fr'], fill_value=0)
+            
+        elif self.cm_method==None:
+            weight = pos.copy()
                 
-        return weight, pos, kelly_output, eta
+        pos.loc[self._bet_of(self.cash_equiv)] = 0.0
+        pos.loc[self._bet_of(self.cash_equiv)] = 1.0 - pos.sum()
 
+        weight.loc[self._bet_of(self.cash_equiv)] = 0.0
+        weight.loc[self._bet_of(self.cash_equiv)] = 1.0 - weight.sum()
+        
+        return weight, pos
+
+    
+    def _bet_of(self, asset):
+        if asset in dict(self.overwrite_to_bet):
+            return dict(self.overwrite_to_bet)[asset]
+        else:
+            return asset
+        
     
     def _get_te_exante(self, date, weight, n_period):
         w_p = weight[weight!=0]

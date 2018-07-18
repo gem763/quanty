@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import scipy.stats as stats
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -10,7 +11,7 @@ from pandas.tseries.offsets import Day
 sns.set_style('ticks')
 #mpl.rc('font', family='NanumGothic')
 mpl.rc('axes', unicode_minus=False)
-
+plt.rcParams['mathtext.fontset'] = 'cm'
 
 class Plotter(object):
 
@@ -260,6 +261,7 @@ class Plotter(object):
 
             ax[-1].set_xlabel(label_, size=15)
 
+            
 
     @classmethod
     def plot_stats_pool(cls, stats_pool, items, names=None, lim=None):
@@ -280,3 +282,155 @@ class Plotter(object):
             #ax[i,0].set_title(fontsize=15, weight='bold')
 
         plt.subplots_adjust(hspace=0.5)
+        
+        
+        
+def plot_normal_dist_under0_shaded():
+    mu = 1
+    std = 1
+    rv = stats.norm(mu, std)
+
+    x = np.linspace(-5, 5, 1000)
+    y = rv.pdf(x)
+    plt.plot(x, y, color='k', lw=2)
+    plt.xlim(-3, 5)
+    plt.ylim(0, 0.5)
+
+    plt.axvline(0, color='k', linestyle='-', linewidth=1)  
+    plt.axhline(0, color='k', linestyle='-', linewidth=1)
+    plt.fill_between(x[x<=0], y[x<=0], 0, color='silver')
+    
+    
+    
+def plot_kmeans(mode):
+    if mode==0:
+        X = np.array([[1,1],[2,1],[4,3],[5,4]])
+
+        fig = plt.figure(figsize=(3,3))
+        plt.scatter(X[:,0],X[:,1], color='k')
+        plt.ylim(0,6)
+        plt.xlim(0,6)
+
+        plt.text(0.8, 1.5, '$\mathbf{x}_1$', fontsize=20, color='k')
+        plt.text(1.8, 1.5, '$\mathbf{x}_2$', fontsize=20, color='k')
+        plt.text(3.8, 3.5, '$\mathbf{x}_3$', fontsize=20, color='k')
+        plt.text(4.8, 4.5, '$\mathbf{x}_4$', fontsize=20, color='k')
+        
+    elif mode==1:
+        X = np.array([[1,1],[2,1],[4,3],[5,4]])
+        x = np.linspace(0, 6, 100)
+
+        fig, axes = plt.subplots(1, 3, sharey=True, sharex=True, figsize=(9,3));
+
+        axes[0].axvline(1.5, color='k', linestyle='--', lw=1)
+        axes[1].plot(x,-(2.7)/(1.7)*(x-(4.7)/2)+(3.7)/2, '--k', lw=1)
+        axes[2].plot(x,-(3)/(2.5)*(x-(6)/2)+(4.5)/2, '--k', lw=1)
+
+        axes[0].scatter(1,1, color='r', s=400)
+        axes[0].scatter(2,1, color='gold', s=400)
+        axes[0].set_title('Iteration 0')
+
+        axes[1].scatter(1,1, color='r', s=400)
+        axes[1].scatter(3.7, 2.7, color='gold', s=400)
+        axes[1].set_title('Iteration 1')
+
+        axes[2].scatter(1.5,1, color='r', s=400)
+        axes[2].scatter(4.5, 3.5, color='gold', s=400)
+        axes[2].set_title('Iteration 2')
+
+        axes[0].scatter(X[:,0],X[:,1], color='k')
+        axes[1].scatter(X[:,0],X[:,1], color='k')
+        axes[2].scatter(X[:,0],X[:,1], color='k')
+        plt.ylim(0,6)
+        plt.xlim(0,6)
+        
+        
+def plot_elasticity():
+    fig = plt.figure(figsize=(8,4))
+    x = np.linspace(0, 3, 100)
+
+    plt.subplot(121)
+    plt.plot(x, x**0.2, 'k')
+    plt.plot(x, x**1, 'b')
+    plt.plot(x, x**2, 'r')
+
+    plt.title(r'$\alpha > 0$', fontsize=20, y=1.03)
+    plt.xlim(0,4)
+    plt.ylim(0,5.5)
+    plt.text(3.2, 1.1, '$\mathbf{R}_i^{0.2}$', fontsize=15, color='k')
+    plt.text(3.2, 3, '$\mathbf{R}_i^1$', fontsize=15, color='b')
+    plt.text(2.5, 5, '$\mathbf{R}_i^2}$', fontsize=15, color='r')
+
+    x = np.linspace(0.001, 3, 1000)
+
+    plt.subplot(122)
+    plt.plot(x, x**(-0.2), 'k')
+    plt.plot(x, x**(-1), 'b')
+    plt.plot(x, x**(-2), 'r')
+
+    plt.text(2, 1.1, '$\mathbf{R}_i^{-0.2}$', fontsize=15, color='k')
+    plt.text(3.2, 0.2, '$\mathbf{R}_i^{-1}$', fontsize=15, color='b')
+    plt.text(0.5, 5, '$\mathbf{R}_i^{-2}}$', fontsize=15, color='r')
+
+    plt.title(r'$\alpha < 0$', fontsize=20, y=1.03)
+    plt.xlim(0,4)
+    plt.ylim(0,5.5)
+    
+    
+    
+def plot_max_single_weight(*bts, names=None, figwidth=10):
+    fig, axes = plt.subplots(1, len(bts), figsize=(figwidth,3))
+    fig.suptitle('History of Maximum single weight', fontsize=15, weight='bold', y=1.05)
+    
+    for i,bt in enumerate(bts):
+        bt.weight.max(axis=1).plot.area(ylim=(0,1), color='silver', ax=axes[i])
+        axes[i].axhline(0.5, color='k', linestyle='--', linewidth=1)
+        if names: axes[i].set_title(names[i])
+    
+    
+    
+def plot_heat(bt_pool, slotx, sloty, items=['cagr', 'sharpe'], names=['CAGR','Sharpe'], labels=[r'$\beta$',r'$\alpha$     ']):
+    #slots = np.linspace(0,2,11)
+
+    tb_0 = np.array([bt_pool.backtests[bt].stats.loc['DualMomentum',items[0]] for bt in bt_pool.backtests]).reshape(11,11)
+    tb_0 = pd.DataFrame(tb_0, index=sloty, columns=slotx).sort_index(ascending=False)
+
+    tb_1 = np.array([bt_pool.backtests[bt].stats.loc['DualMomentum',items[1]] for bt in bt_pool.backtests]).reshape(11,11)
+    tb_1 = pd.DataFrame(tb_1, index=sloty, columns=slotx).sort_index(ascending=False)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12,6))
+
+    sns.heatmap(tb_0, annot=True, square=True, fmt='.1f', linewidths=.1, cbar=False, cmap='YlGnBu', ax=axes[0])
+    axes[0].set_title(names[0], size=20)
+    axes[0].set_ylabel(labels[1], size=20, rotation=0)
+    axes[0].set_xlabel(labels[0], size=20)
+
+    sns.heatmap(tb_1, annot=True, square=True, fmt='.2f', linewidths=.1, cbar=False, cmap='YlGnBu', ax=axes[1])
+    axes[1].set_title(names[1], size=20)
+    axes[1].set_ylabel(labels[1], size=20, rotation=0)
+    axes[1].set_xlabel(labels[0], size=20)    
+    
+    
+    
+def plot_by_eaa_bnd(ref, *bts, names=['Dual momentum', 'Dynamic EAA w/o CP']):
+    fig, axes = plt.subplots(3, len(bts), sharey='row', sharex=True, figsize=(len(bts)*2,3*2));
+
+    for i,bt in enumerate(bts):
+        ref.cum[['DualMomentum']].plot(ax=axes[0,i], legend=False, color='orange', xticks=bt.cum.index[::1250])
+        bt.cum[['DualMomentum']].plot(ax=axes[0,i], legend=False, color='r', title=r'$\theta$='+str(i+1))
+        pd.Series(bt.port.wr, index=bt.dates_asof).plot(ax=axes[1,i], lw=1, ylim=(-6,6))
+        bt.weight.max(axis=1).plot.area(color='silver', ax=axes[2,i], ylim=(0,1))
+    
+    axes[0,0].set_ylabel('Cumulative\n Return')
+    axes[1,0].set_ylabel(r'Elasticity $\alpha$')
+    axes[2,0].set_ylabel('Max\n single weight')
+
+    axes[0,0].legend(
+        names, 
+        bbox_to_anchor=(0, 1.15, 1, 0), ncol=2, loc=3
+    );    
+    
+    
+    
+    
+    

@@ -16,6 +16,28 @@ from ..model import evaluator as ev
 
 
 
+def read_db(src='prices_global.pkl', mapper='mapper.csv'):
+    mpr = pd.read_csv(mapper, engine='python', sep=',\s+', index_col=0, squeeze=True)
+    db = pd.read_pickle(src)
+    db = db.iloc[db.index.get_level_values(1).isin(mpr.index)]
+    return db.rename(index=mpr, level=1)
+
+
+def overwrite_params(base_params, **what):
+    out = base_params.copy()
+    out.update(what)
+    return out
+
+
+def dict_flatten(params, out):
+    for k,v in params.items():
+        if isinstance(v, dict):
+            dict_flatten(v, out)
+        else:
+            out.update({k:v})
+
+
+
 @jit(types.Tuple((float64[:], float64, float64[:]))(float64[:], float64[:]), nopython=True)
 def _update_pos_daily_fast(pos_daily_last_np, r):
     pos_cash = 1.0 - pos_daily_last_np.sum()
@@ -31,51 +53,59 @@ def _update_pos_daily_fast(pos_daily_last_np, r):
 
 class BacktesterBase(object):
     def __init__(self, params, **opt):
-        params = self._overwrite_params(params, **opt)
+        params_flat = {}
+        dict_flatten(params, params_flat)
+        params_flat = overwrite_params(params_flat, **opt)
+        self.__dict__.update(params_flat)
         
-        # 변수 초기화
-        self.__dict__.update(params)
-        self.dates, self.dates_asof = self._get_dates()
-        self.p, self.p_ref, self.p_close, self.p_buy, self.p_sell, self.r = self._prices()
-        self.dm = dm(**params, p_ref=self.p_ref, dates_asof=self.dates_asof, p_close=self.p_close)
-        #self.port = port(self.w_type, self.cash_equiv, self.p_close, self.iv_period, self.apply_kelly, self.r, self.bm, self.safety_buffer, self.te_target)
-        self.port = port(**params, p_close=self.p_close, r=self.r)
+        dates, dates_asof = self._get_dates()
+        p, p_ref, p_close, p_buy, p_sell, r = self._prices()
+        self.__dict__.update({
+            'dates': dates, 
+            'dates_asof': dates_asof, 
+            'p': p, 
+            'p_ref': p_ref, 
+            'p_close': p_close, 
+            'p_buy': p_buy, 
+            'p_sell': p_sell, 
+            'r': r, 
+        })
         
-        
-        # 백테스트
-#        st=time.time()
+        self.dm = dm(**self.__dict__)
+        self.port = port(**self.__dict__)
+
         self._run()
-#        print(time.time()-st)
-        
-#        st=time.time()
         self.turnover = ev._turnover(self.weight)
-#        print(time.time()-st)
-        
-#        st=time.time()
-        self.stats = ev._stats(self.cum, self.beta_to, self.n_roll_stats)
-#        print(time.time()-st)
+        self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)
 
         
     def _run(self):
         raise NotImplementedError
 
 
-    def _prices(self):    
-        data_unstacked = self.data.unstack().loc[:self.end].fillna(method='ffill')
+    def _prices(self):
+        db_unstacked = self.db.unstack().loc[:self.end].fillna(method='ffill')
         
-        assets = set(self.assets_member.values.flatten())
-        assets.update({self.beta_to, self.cash_equiv})
-        if self.bm is not None: assets.update({self.bm})
-        
-        assets_bet = set(self.assets_member.bet)
-        assets_bet.update({self.cash_equiv})
+        assets_bet = self.assets | {self.cash_equiv}
+        assets_bet = {dict(self.overwrite_to_bet)[asset] if asset in dict(self.overwrite_to_bet) else asset for asset in assets_bet}
         if self.bm is not None: assets_bet.update({self.bm})
+        #set_trace()
+        assets_all = assets_bet | self.assets | {self.beta_to}
+        #if self.bm is not None: assets_all.update({self.bm})
+
+        #assets = set(self.assets_member.values.flatten())
+        #assets.update({self.beta_to, self.cash_equiv})
+        #if self.bm is not None: assets.update({self.bm})
         
-        p = data_unstacked[self.perf_src].reindex(columns=assets)
-        p_ref = data_unstacked[self.ref_src].reindex(columns=self.assets_member.ref)
-        p_bet = data_unstacked[self.bet_src].reindex(columns=assets_bet)
-        p_high = data_unstacked['high'].reindex(columns=assets_bet)
-        p_low = data_unstacked['low'].reindex(columns=assets_bet)
+        #assets_bet = set(self.assets_member.bet)
+        #assets_bet.update({self.cash_equiv})
+        #if self.bm is not None: assets_bet.update({self.bm})
+        
+        p = db_unstacked[self.perf_src].reindex(columns=assets_all) #assets)
+        p_ref = db_unstacked[self.ref_src].reindex(columns=self.assets) #self.assets_member.ref)
+        p_bet = db_unstacked[self.bet_src].reindex(columns=assets_bet)
+        p_high = db_unstacked['high'].reindex(columns=assets_bet)
+        p_low = db_unstacked['low'].reindex(columns=assets_bet)
         
         p_bet_high = p_bet * (p_high/p_bet).mean()
         p_bet_low = p_bet * (p_low/p_bet).mean()
@@ -83,33 +113,27 @@ class BacktesterBase(object):
         p_bet_high.update(p_high)
         p_bet_low.update(p_low)
         
-        if self.trading_tolerance=='at_close':
+        if self.trade_tol=='at_close':
             p_close = p_bet
             p_buy = p_bet
             p_sell = p_bet
             
-        elif self.trading_tolerance=='buyHigh_sellLow':
+        elif self.trade_tol=='buyHigh_sellLow':
             p_close = p_bet            
             p_buy = p_bet_high
             p_sell = p_bet_low
             
-        elif self.trading_tolerance=='buyLow_sellHigh':
+        elif self.trade_tol=='buyLow_sellHigh':
             p_close = p_bet
             p_buy = p_bet_low
             p_sell = p_bet_high
             
         return p, p_ref, p_close, p_buy, p_sell, p.pct_change()    
-            
-            
-    def _overwrite_params(self, base_params, **what):
-        out = base_params.copy()
-        out.update(what)
-        return out
-
+               
 
     # 모든 영업일 출력
     def _get_dates(self):
-        dates_all = self.data.index.levels[0]
+        dates_all = self.db.index.levels[0]
         dates = dates_all[(self.start<=dates_all) & (dates_all<=self.end)]
         
         # 무조건 첫날(start)과 마지막날(end)은 포함
@@ -119,8 +143,6 @@ class BacktesterBase(object):
         if self.end not in dates: 
             dates = dates.append(pd.DatetimeIndex([self.end]))
 
-        #dates_ref = pd.date_range(dates_all[0], self.end, freq='M')
-        #set_trace()
         dates_asof = pd.date_range(self.start, self.end, freq='M')
         dates_asof = dates_all[dates_all.get_indexer(dates_asof, method='ffill')] & dates
         
@@ -158,9 +180,9 @@ class BacktesterBase(object):
                 'sharpe_roll_med': 'Sharpe (Rolling1Y)', 
                 'mdd': 'MDD (%)', 
                 'hit': 'Hit ratio (%,1M)', 
-                'profit_to_loss': 'Profit-to-loss (%,1M)', #'평균손익비(%,1M)', 
+                'profit_to_loss': 'Profit-to-loss (%,1M)', 
                 'beta': 'Beta (vs.' + self.beta_to + ')',
-                'loss_proba': 'Loss probability (%,1Y)', #'손실확률(%,1Y)', 
+                'loss_proba': 'Loss probability (%,1Y)', 
                 'consistency': 'Consistency (%)',
             }
             
@@ -173,9 +195,9 @@ class BacktesterBase(object):
                 'sharpe': 'Sharpe', 
                 'mdd': 'MDD (%)', 
                 'hit': 'Hit ratio (%,1M)', 
-                'profit_to_loss': 'Profit-to-loss (%,1M)', #'평균손익비(%,1M)', 
+                'profit_to_loss': 'Profit-to-loss (%,1M)', 
                 'beta': 'Beta (vs.' + self.beta_to + ')',
-                'loss_proba': 'Loss probability (%,1Y)', #'손실확률(%,1Y)', 
+                'loss_proba': 'Loss probability (%,1Y)', 
                 'consistency': 'Consistency (%)',
             }
             
@@ -276,14 +298,14 @@ class Backtester(BacktesterBase):
 
             # 1. 리밸런싱 비중결정하는 날
             elif date in self.dates_asof:
-                weight_, pos_, trade_due, kelly_output, eta_ = self._positionize(date, weight_, trade_due)
+                weight_, pos_, trade_due, eta_ = self._positionize(date, weight_, trade_due)
                 pos_d_, model_rtn_, model_contr_ = self._update_pos_daily(date, pos_d_)
                 
                 #self.sig.append(sig_)
                 #self.ranks.append(ranks_)
                 self.weight.append(weight_)
                 self.pos.append(pos_)
-                self.kelly.append(kelly_output)
+                #self.kelly.append(kelly_output)
                 #self.te_hist.append(te_hist_)
                 #self.te_exante.append(te_exante_)
                 self.eta.append(eta_)
@@ -334,12 +356,12 @@ class Backtester(BacktesterBase):
             
     def _update_pos_daily(self, date, pos_daily_last_):    
         if date in self.r.index:
-            assets = pos_daily_last_.index[pos_daily_last_!=0]
-            pos_daily_last_np = pos_daily_last_.loc[assets].values
-            r = self.r.loc[date, assets].values
+            assets_ = pos_daily_last_.index[pos_daily_last_!=0]
+            pos_daily_last_np = pos_daily_last_.loc[assets_].values
+            r = self.r.loc[date, assets_].values
             pos_daily_last_np, model_rtn_, model_contr_ = _update_pos_daily_fast(pos_daily_last_np, r)
             
-            return pd.Series(pos_daily_last_np, index=assets), model_rtn_, model_contr_
+            return pd.Series(pos_daily_last_np, index=assets_), model_rtn_, model_contr_
         
         else:
             return pos_daily_last_, 0.0, pd.Series()
@@ -391,13 +413,12 @@ class Backtester(BacktesterBase):
 
     def _positionize(self, date, weight_asis_, trade_due):
         selection_, sig_, ranks_ = self.dm.selection.loc[date], self.dm.sig.loc[date], self.dm.ranks.loc[date]
-        #if date>pd.Timestamp('2005-01-01'): set_trace()
-        weight_, pos_, kelly_output, eta_ = self.port.get(selection_, date, sig_, ranks_, self.wealth, self.model_rtn)
+        weight_, pos_, eta_ = self.port.get(selection_, date, sig_, ranks_, self.wealth, self.model_rtn)
         
         if weight_.sub(weight_asis_, fill_value=0).abs().sum()!=0:
             trade_due = self.trade_delay
 
-        return weight_, pos_, trade_due, kelly_output, eta_
+        return weight_, pos_, trade_due, eta_
 
 
     def _evaluate(self, date, hold_, cash_):
@@ -415,7 +436,9 @@ class Backtester(BacktesterBase):
         
 class BacktestComparator(Backtester):
     def __init__(self, params, **backtests):
-        self.__dict__.update(params)
+        params_flat = {}
+        dict_flatten(params, params_flat)
+        self.__dict__.update(params_flat)
         self.backtests = OrderedDict(backtests)
         self.cum, self.stats = self._get_results()
 
@@ -464,7 +487,7 @@ class BacktestComparator(Backtester):
             
         mixed = pd.DataFrame(mixed, index=self.cum.index)
         self.cum['mixed'] = mixed['sum']
-        self.stats = ev._stats(self.cum, self.beta_to, self.n_roll_stats)
+        self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)
         
         
     def plot_stats_pool(self, **params):
