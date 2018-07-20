@@ -10,6 +10,8 @@ class Portfolio(object):
         self.__dict__.update(**params)
         self.wr = []
         self.wc = []
+        self.downrisk = []
+        self.uprisk = []
         
         
     def get(self, selection, date, sig, ranks, wealth, model_rtn):
@@ -22,6 +24,12 @@ class Portfolio(object):
 
         elif self.w_type=='ranky2':
             pos = selection / (ranks**0.5)
+            
+        elif self.w_type=='inv_ranky':
+            pos = selection * ranks
+
+        elif self.w_type=='inv_ranky2':
+            pos = selection * (ranks**0.5)
             
         elif self.w_type=='sig':
             sig_ = sig[selection!=0]
@@ -105,9 +113,10 @@ class Portfolio(object):
         
         # Normalize
         pos /= pos.sum()
+        pos = pos.fillna(0)
         weight, pos = self._cash_control(date, pos, sig, wealth, model_rtn)
         weight, eta = self._te_control(date, weight, wealth)
-                
+
         return weight, pos, eta
 
     
@@ -116,9 +125,8 @@ class Portfolio(object):
         if self.te_target is not None:
             te_hist = self._get_te_hist(date, wealth)
             te_exante = self._get_te_exante(date, weight, 250)
-            #te_exante_short = self._get_te_exante_ewm(date, weight, 250)
 
-            k = 0.3
+            k = self.te_k
             d = 250
             d_h = np.min([230, len(wealth)])
             d_f = 250 - d_h
@@ -143,12 +151,28 @@ class Portfolio(object):
 
             
             if self.te_short_target_cap:
-                te_exante_short = self._get_te_exante(date, weight, 20)
-
+                te_exante_short = self._get_te_exante(date, weight, self.te_short_period)
+                
                 if te_exante_short==0:
                     eta_max = 1
+                #elif te_exante_short<self.te_target/(2**0.5):
+                #    eta_max = 1
                 else:
                     eta_max = np.min([self.safety_buffer*self.te_target / te_exante_short, 1])
+                
+                eta = np.min([eta, eta_max])
+
+                
+            if self.te_short_up_down_ratio_cap:
+                te_exante_short_up = self._get_te_exante_semi(date, weight, self.te_short_period, opts='up')
+                te_exante_short_down = self._get_te_exante_semi(date, weight, self.te_short_period, opts='down')                
+                #self.downrisk.append(te_down)
+                #self.uprisk.append(te_up)
+                
+                if te_exante_short_up==0 or te_exante_short_down==0:
+                    eta_max = 1
+                else:
+                    eta_max = np.min([self.safety_buffer*te_exante_short_up/te_exante_short_down, 1])
                 
                 eta = np.min([eta, eta_max])
                 
@@ -176,6 +200,12 @@ class Portfolio(object):
             kelly_output = self._get_kelly_fraction(date, wealth, model_rtn)
             weight = pos.mul(kelly_output['fr'], fill_value=0)
             
+        elif self.cm_method=='up_down_ratio':
+            vol_up = self._get_vol_exante_semi(date, pos, self.up_down_ratio_period, opts='up')
+            vol_down = self._get_vol_exante_semi(date, pos, self.up_down_ratio_period, opts='down')
+            t_weight = np.min([vol_up/vol_down, 1])
+            weight = pos.mul(t_weight, fill_value=0)
+            
         elif self.cm_method==None:
             weight = pos.copy()
                 
@@ -201,7 +231,37 @@ class Portfolio(object):
         w_bm = pd.Series({self.bm:1.0}, index=w_p.index).fillna(0)
         cov = self.r.loc[self.r.index<date, w_p.index].iloc[-n_period:].cov() * 250
         w_diff = w_p - w_bm
-        return w_diff.T.dot(cov.dot(w_diff))**0.5
+        return (w_diff.T.dot(cov.dot(w_diff)))**0.5
+    
+
+
+    def _get_vol_exante_semi(self, date, weight, n_period, opts):
+        w_p = weight[weight!=0]
+        
+        if opts=='up':
+            mm = self.r.loc[self.r.index<date, w_p.index].iloc[-n_period:].clip_lower(0)
+        elif opts=='down':
+            mm = self.r.loc[self.r.index<date, w_p.index].iloc[-n_period:].clip_upper(0)
+            
+        cov = mm.T.dot(mm) * 250 / n_period
+        return (w_p.T.dot(cov.dot(w_p)))**0.5
+    
+    
+    
+    def _get_te_exante_semi(self, date, weight, n_period, opts):
+        w_p = weight[weight!=0]
+        if self.bm not in w_p.index: w_p[self.bm] = 0
+        w_bm = pd.Series({self.bm:1.0}, index=w_p.index).fillna(0)
+        
+        
+        if opts=='up':
+            mm = self.r.loc[self.r.index<date, w_p.index].iloc[-n_period:].clip_lower(0)
+        elif opts=='down':
+            mm = self.r.loc[self.r.index<date, w_p.index].iloc[-n_period:].clip_upper(0)
+            
+        cov = mm.T.dot(mm) * 250 / n_period
+        w_diff = w_p - w_bm
+        return (w_diff.T.dot(cov.dot(w_diff)))**0.5
     
 
     def _get_te_exante_ewm(self, date, weight, halflife):
@@ -231,17 +291,17 @@ class Portfolio(object):
     def _get_kelly_fraction(self, date, wealth, model_rtn):
         out = {'fr': 1.0}
 
-        if (self.apply_kelly is not None) and (len(wealth)>0) and (len(model_rtn)>0): #(date!=self.dates[0]):
+        if (len(wealth)>0) and (len(model_rtn)>0): #(date!=self.dates[0]):
           
-            if self.apply_kelly['self_eval']:
-                ref_rtn = np.array(wealth)[-1:-1-self.apply_kelly['vol_period']-1:-1,-1][::-1]
+            if self.kelly_self_eval:
+                ref_rtn = np.array(wealth)[-1:-1-self.kelly_vol_period-1:-1,-1][::-1]
                 ref_rtn = ref_rtn[1:] / ref_rtn[:-1] - 1.0
                 
             else:
-                ref_rtn = np.array(model_rtn)[-1:-1-self.apply_kelly['vol_period']:-1][::-1]
+                ref_rtn = np.array(model_rtn)[-1:-1-self.kelly_vol_period:-1][::-1]
             
             if len(ref_rtn)>=20:
-                if self.apply_kelly['method']=='semivariance':
+                if self.kelly_type=='semivariance':
                     up = ev._std_dir_by_r(ref_rtn, 1)/100
                     down = ev._std_dir_by_r(ref_rtn, -1)/100
                     fr_raw = ((up-down) / (2*up*down))
@@ -252,7 +312,7 @@ class Portfolio(object):
                         out['fr_raw'] = fr_raw
                         out['fr'] = fr_raw.clip(0,1)
 
-                elif self.apply_kelly['method']=='traditional':
+                elif self.kelly_type=='traditional':
                     #cash_rtn = self.r[self.cash_equiv].loc[:date][-1:-1-self.apply_kelly['vol_period']:-1][::-1]
                     #mu_cash = np.nanmean(cash_rtn)
                     mu = np.nanmean(ref_rtn)

@@ -115,7 +115,7 @@ class DualMomentum(object):
     
     
     def _selection(self, sig, is_tradable, i_date):
-        has_rf_ma_mtum = self._has_ma_mtum_single(i_date, self.rf_trend, self.riskfree)
+        has_rf_ma_mtum = self._has_ma_mtum_single(i_date, self.follow_trend_riskfree, self.riskfree)
         #set_trace()
         has_rf_positive_sig = sig.loc[self._bet_of(self.riskfree)]>=0
         
@@ -156,7 +156,7 @@ class DualMomentum(object):
     
     
     def _get_default_selection(self, i_date, sig, n_picks):
-        score = self._screen_by_ma_mtum(sig.copy(), i_date, self.self_trend)
+        score = self._screen_by_ma_mtum(sig.copy(), i_date, self.follow_trend)
         ranks = score.rank(ascending=False, na_option='bottom')
         
         if self.mode=='DualMomentum':
@@ -167,7 +167,7 @@ class DualMomentum(object):
         elif self.mode=='RelativeMomentum':
             pos = ranks<1+n_picks
           
-        elif selfmode=='AbsoluteMomentum':
+        elif self.mode=='AbsoluteMomentum':
             pos = (score>0)
             if self.overall_market_check:
                 pos &= (sig.loc[self._bet_of(self.market)]>0)

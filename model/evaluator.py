@@ -22,13 +22,13 @@ def _std(p):
 
 
 # 종목별 Sharpe
-#@jit(float64(float64[:]), nopython=True)#, fastmath=True)
-#def _sharpe(p): 
-#    std = _std(p)
-#    if std==0:
-#        return np.nan
-#    else:
-#        return _cagr(p)/std
+@jit(float64(float64[:]), nopython=True)#, fastmath=True)
+def _sharpe(p): 
+    std = _std(p)
+    if std==0:
+        return np.nan
+    else:
+        return _cagr(p)/std
     
 
 # 종목별 변동성

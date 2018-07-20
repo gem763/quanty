@@ -13,14 +13,21 @@ from .plotter import Plotter as pltr
 from .dual_momentum import DualMomentum as dm
 from .portfolizer import Portfolio as port
 from ..model import evaluator as ev
+from ..model import setting
 
 
 
-def read_db(src='prices_global.pkl', mapper='mapper.csv'):
-    mpr = pd.read_csv(mapper, engine='python', sep=',\s+', index_col=0, squeeze=True)
-    db = pd.read_pickle(src)
-    db = db.iloc[db.index.get_level_values(1).isin(mpr.index)]
-    return db.rename(index=mpr, level=1)
+def read_db(base='prices_global.pkl', add=None):
+    mapper = setting.mapper
+    db = pd.read_pickle(base)
+    
+    if add:
+        db_add = pd.read_pickle(add)
+        db_add.unstack().reindex(index=db.index.levels[0], method='ffill').stack()
+        db = db.append(db_add)
+    
+    db = db.iloc[db.index.get_level_values(1).isin(mapper.keys())]
+    return db.rename(index=mapper, level=1)
 
 
 def overwrite_params(base_params, **what):
@@ -157,6 +164,21 @@ class BacktesterBase(object):
         pltr.plot_cum(self.cum, strats, **params)
         
         
+    def plot_cum_te(self, strats, bm, te_target, **params):
+        pltr.plot_cum_te(self.cum, strats, bm, te_target, **params)
+        
+        
+    def plot_cum_exc_te(self, strats, bm, te_target, **params):
+        pltr.plot_cum_exc_te(self.cum, strats, bm, te_target, **params)
+        
+        
+    def plot_cum_te_many(self, strats, **params):
+        bm = list(self.backtests.values())[0].bm
+        te_target_list = [bt.te_target for bt in self.backtests.values()]
+        etas = [bt.eta for bt in self.backtests.values()]
+        pltr.plot_cum_te_many(self.cum, strats, bm, te_target_list, etas, **params)
+        
+        
     def plot_cum_yearly(self, strats, **params): 
         pltr.plot_cum_yearly(self.cum[strats], **params)
 
@@ -220,9 +242,9 @@ class BacktesterBase(object):
         
     def plot_dist(self, strats, **params):
         items = {
-            ev._cagr: 'CAGR(%,Rolling1Y)', 
-            ev._std: 'Standard dev(%,Rolling1Y)',
-            ev._sharpe: 'Sharpe(Rolling1Y)', 
+            ev._cagr: 'CAGR (%,Rolling1Y)', 
+            ev._std: 'Volatility (%,Rolling1Y)',
+            ev._sharpe: 'Sharpe (Rolling1Y)', 
         }
         
         pltr.plot_dist(self.cum, strats, items, **params)
@@ -328,7 +350,7 @@ class Backtester(BacktesterBase):
             self.model_rtn.append(model_rtn_)
             self.model_contr.append(model_contr_)
 
-        
+
         # 종목별 시그널, 포지션
         self.sig = pd.DataFrame(self.sig, index=self.dates_asof)
         self.ranks = pd.DataFrame(self.ranks, index=self.dates_asof)
@@ -359,9 +381,10 @@ class Backtester(BacktesterBase):
             assets_ = pos_daily_last_.index[pos_daily_last_!=0]
             pos_daily_last_np = pos_daily_last_.loc[assets_].values
             r = self.r.loc[date, assets_].values
+            #if date>pd.Timestamp('2011-01-01'): set_trace()
             pos_daily_last_np, model_rtn_, model_contr_ = _update_pos_daily_fast(pos_daily_last_np, r)
             
-            return pd.Series(pos_daily_last_np, index=assets_), model_rtn_, model_contr_
+            return pd.Series(pos_daily_last_np, index=assets_), model_rtn_, pd.Series(model_contr_, index=assets_)
         
         else:
             return pos_daily_last_, 0.0, pd.Series()

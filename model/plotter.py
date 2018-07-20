@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.ticker import ScalarFormatter
 from pandas.tseries.offsets import Day
+from IPython.core.debugger import set_trace
 
 sns.set_style('ticks')
 #mpl.rc('font', family='NanumGothic')
@@ -42,6 +43,83 @@ class Plotter(object):
         if names: ax.legend(names, fontsize=legend_fsize)
         else: ax.legend(fontsize=legend_fsize)
 
+            
+    @classmethod
+    def plot_cum_te(cls, cum, strats, bm, te_target, names=None, color=None, logy=True):
+        fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(10,4))
+        cum_ = cum[strats]
+        cum_.plot(color=color, legend=False, ax=axes[0], logy=logy)
+
+        rtns = cum_.pct_change()
+        #set_trace()
+        rtns_ = rtns.drop([bm], axis=1)
+        rtns_ = rtns_.sub(rtns[bm], axis=0).rolling(250).std()*(250**0.5)
+        rtns_.plot(color=color[1:], legend=False, ax=axes[1])
+
+        axes[0].set_title('Cumulative Return', fontsize=15, weight='bold')
+        axes[1].set_title('Tracking error', fontsize=15, weight='bold')
+        axes[1].axhline(te_target, color='k', linestyle='--', linewidth=1)
+
+        axes[0].legend(
+            names, 
+            bbox_to_anchor=(0, 1.1, 1, 0), ncol=4, loc=3
+        );
+        
+
+    @classmethod
+    def plot_cum_exc_te(cls, cum, strats, bm, te_target, names=None, color=None, logy=True):
+        fig, axes = plt.subplots(1, 3, sharey=False, sharex=True, figsize=(10.5,3.5))
+        cum_ = cum[strats]
+        cum_.plot(color=color, legend=False, ax=axes[0], logy=logy)
+        #set_trace()
+        cum_.sub(cum_[bm], axis=0).drop([bm], axis=1).plot(legend=False, ax=axes[1], color=color[1:], logy=logy)
+        axes[1].axhline(0, color='k', linestyle='-', linewidth=1)
+        
+        rtns = cum_.pct_change()
+        #set_trace()
+        rtns_ = rtns.drop([bm], axis=1)
+        rtns_ = rtns_.sub(rtns[bm], axis=0).rolling(250).std()*(250**0.5)
+        rtns_.plot(color=color[1:], legend=False, ax=axes[2])
+
+        axes[0].set_title('Cumulative Return', fontsize=15, weight='bold')
+        axes[1].set_title('Relative to ' + names[0], fontsize=15, weight='bold')
+        axes[2].set_title('Tracking error', fontsize=15, weight='bold')
+        axes[2].axhline(te_target, color='k', linestyle='--', linewidth=1)
+
+        axes[0].legend(
+            names, 
+            bbox_to_anchor=(0, 1.1, 1, 0), ncol=4, loc=3
+        );
+        
+            
+    @classmethod
+    def plot_cum_te_many(cls, cum, strats, bm, te_target_list, etas, names=None, color=None):
+        fig, axes = plt.subplots(3, len(etas), sharey='row', sharex=True, figsize=(len(etas)*2,3*2));
+        strats_ = strats.copy()
+        strats_.remove(bm)
+        
+        for i,strat in enumerate(strats_):
+            title = 'TE<'+str(int(te_target_list[i]*100))+'%' if te_target_list[i] else 'No Constraint'
+            #set_trace()
+            cum_ = cum[[strats_[i],bm]]
+            #set_trace()
+            cum_.plot(ax=axes[0,i], legend=False, color=color, title=title, xticks=cum_.index[::1250])
+            
+            rtns = cum_.pct_change()
+            ((rtns[strats_[i]]-rtns[bm]).rolling(250).std()*(250**0.5)).plot(ax=axes[1,i], legend=False, color='k')
+            if te_target_list[i]: axes[1,i].axhline(te_target_list[i], color='k', linestyle='--', linewidth=1)
+            
+            etas[i].plot.area(ax=axes[2,i], legend=False, color='silver', ylim=(0,1))
+        
+        axes[0,0].set_ylabel('Cumulative\n Return')
+        axes[1,0].set_ylabel('Tracking error')
+        axes[2,0].set_ylabel('Total weight ($\eta$)')
+        
+        axes[0,0].legend(
+            names, 
+            bbox_to_anchor=(0, 1.15, 1, 0), ncol=2, loc=3
+        );
+                    
 
     @classmethod
     def plot_cum_yearly(cls, cum, names=None, color=None, style=None, remove=[]):
@@ -169,7 +247,7 @@ class Plotter(object):
             ax_.axvline(0, color='k', linestyle='-', linewidth=1)
 
         plt.subplots_adjust(hspace=hspace)
-        fig.suptitle('Statistics', fontsize=15, weight='bold', y=0.94)
+        #fig.suptitle('Statistics', fontsize=15, weight='bold', y=0.94)
 
 
     @classmethod
@@ -227,8 +305,8 @@ class Plotter(object):
                 size=12,
             )
 
-        ax.set_xlabel('Standard deviation(%)', size=15) # 연변동성
-        ax.set_ylabel('CAGR(%)', size=15)
+        ax.set_xlabel('Volatility (%)', size=15) # 연변동성
+        ax.set_ylabel('CAGR (%)', size=15)
 
 
     @classmethod
@@ -259,6 +337,7 @@ class Plotter(object):
                 ax_.axvline(med[j], color='r', linewidth=5, alpha=0.5)
                 ax_.set_ylabel('')
 
+            #ax[0].set_title(label_, size=15)
             ax[-1].set_xlabel(label_, size=15)
 
             
@@ -431,6 +510,108 @@ def plot_by_eaa_bnd(ref, *bts, names=['Dual momentum', 'Dynamic EAA w/o CP']):
     );    
     
     
+
+def plot_te_filter(what):    
+    if what=='base':
+        x1 = np.linspace(-2, 0, 100)
+        y1 = np.zeros_like(x1)
+        x2 = np.linspace(0, 1, 50)
+        y2 = np.sqrt(x2)
+        x3 = np.linspace(1,2,50)
+        y3 = np.ones_like(x3)
+        x4 = np.linspace(1,2,50)
+        y4 = np.sqrt(x4)
+        plt.plot(x1, y1, 'k', lw=5)
+        plt.plot(x2, y2, 'k', lw=5)
+        plt.plot(x3, y3, 'k', lw=5)
+        plt.plot(x4, y4, 'k--', lw=1)
+        plt.xlim(-2,2)
+        plt.ylim(-0.1,1.2)
+        plt.title('$y=\eta^*(x)$', fontsize=20, y=1.03)
     
-    
-    
+    elif what=='smoother':
+        x1 = np.linspace(-2, 0, 100)
+        y1 = np.zeros_like(x1)
+        x2 = np.linspace(0, 1, 50)
+        y2 = np.sqrt(x2)
+        x3 = np.linspace(1,2,50)
+        y3 = np.ones_like(x3)
+        k = 0.3
+        x4 = np.linspace(-2,2,200)
+        y4 = np.sqrt(k) * np.exp(0.5*(x4/k)-0.5)
+
+        plt.plot(x4, y4, 'r--', lw=1)
+        plt.plot(x1, y1, 'k', lw=5)
+        plt.plot(x2, y2, 'k', lw=5)
+        plt.plot(x3, y3, 'k', lw=5)
+
+        plt.xlim(-2,2)
+        plt.ylim(-0.1,1.2)
+        plt.axvline(k, color='k', linestyle='-', linewidth=1)
+        plt.text(0.25, -0.22, '$k$', fontsize=20, color='r')
+        plt.text(-1, 0.2, '$g(x)$', fontsize=20, color='r')
+        plt.text(1, 0.85, '$\eta^*(x)$', fontsize=20, color='k')
+        
+    elif what=='base+smoother':
+        x1 = np.linspace(-2, 0, 100)
+        y1 = np.zeros_like(x1)
+        x2 = np.linspace(0.3, 1, 50)
+        y2 = np.sqrt(x2)
+        x3 = np.linspace(1,2,50)
+        y3 = np.ones_like(x3)
+        k = 0.3
+        x4 = np.linspace(-2,0.3,200)
+        y4 = np.sqrt(k) * np.exp(0.5*(x4/k)-0.5)
+
+        x5 = np.linspace(0, 0.3, 50)
+        y5 = np.sqrt(x5)
+
+        plt.plot(x4, y4, 'k', lw=5)
+        plt.plot(x1, y1, 'k--', lw=1)
+        plt.plot(x2, y2, 'k', lw=5)
+        plt.plot(x3, y3, 'k', lw=5)
+        plt.plot(x5, y5, 'k--', lw=1)
+        plt.xlim(-2,2)
+        plt.ylim(-0.1,1.2)
+        plt.axvline(k, color='k', linestyle='-', linewidth=1)
+        plt.text(0.25, -0.22, '$k$', fontsize=20, color='r')
+        plt.text(-1, 0.2, '$g(x)$', fontsize=20, color='k')
+        plt.text(1, 0.85, '$\eta^*(x)$', fontsize=20, color='k')
+        plt.title('$y=\eta^*_o(x)$', fontsize=20, y=1.03)
+        
+    elif what=='many_k':
+        k = 0.1
+        x1 = np.linspace(-2, 0, 100)
+        y1 = np.zeros_like(x1)
+        x2 = np.linspace(k, 1, 50)
+        y2 = np.sqrt(x2)
+        x3 = np.linspace(1,2,50)
+        y3 = np.ones_like(x3)
+
+        x4 = np.linspace(0, k, 50)
+        y4 = np.sqrt(x4)
+
+        x5 = np.linspace(-2,k,200)
+        y5 = np.sqrt(k) * np.exp(0.5*(x5/k)-0.5)
+
+        k = 0.5
+        x6 = np.linspace(-2,k,200)
+        y6 = np.sqrt(k) * np.exp(0.5*(x6/k)-0.5)
+
+        k = 0.9
+        x7 = np.linspace(-2,k,200)
+        y7 = np.sqrt(k) * np.exp(0.5*(x7/k)-0.5)
+
+        plt.plot(x1, y1, 'k', lw=5)
+        plt.plot(x2, y2, 'k', lw=5)
+        plt.plot(x3, y3, 'k', lw=5)
+        plt.plot(x4, y4, 'k', lw=5)
+        plt.plot(x5, y5, 'k--', lw=1)
+        plt.plot(x6, y6, 'k--', lw=1)
+        plt.plot(x7, y7, 'k--', lw=1)
+        plt.xlim(-2,2)
+        plt.ylim(-0.1,1.2)
+        plt.text(-1.8, 0.32, '$k=0.9$', fontsize=15, color='k')
+        plt.text(-1.2, 0.22, '$k=0.5$', fontsize=15, color='k')
+        plt.text(-0.7, 0.1, '$k=0.1$', fontsize=15, color='k')
+        #plt.title('$y=\eta^*_o(x)$', fontsize=20, y=1.03)
