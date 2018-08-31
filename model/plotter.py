@@ -191,23 +191,28 @@ class Plotter(object):
 
 
     @classmethod
-    def plot_weight(cls, weight, rng, riskfree, cash_equiv):
-        weight_ = weight.copy().drop([cash_equiv], axis=1)
+    def plot_weight(cls, weight, rng, supporter, cash_equiv):
+        weight_ = weight.copy()#.drop([cash_equiv], axis=1)
         weight_i = weight_.index + 5*Day()
         weight_.index = weight_i
         weight_ = weight_[str(rng[0]):str(rng[1])]
         weight_.index = weight_.index.strftime('%Y-%m')
-
+        
         weight__ = []
         for dt in weight_.index:
             has_weight = weight_.loc[dt].abs() > 0.001
             weight__.append(weight_.loc[dt][has_weight])
 
+        #set_trace()
         weight__ = pd.DataFrame(weight__)
         cols = list(weight__.columns)
-        cols.remove(riskfree)
-        cols = [riskfree] + cols
-        weight__ = weight__[cols]
+        if supporter in cols: cols.remove(supporter)
+        if cash_equiv in cols: cols.remove(cash_equiv)
+        if supporter==cash_equiv: 
+            cols = [cash_equiv] + cols
+        else:
+            cols = [cash_equiv, supporter] + cols
+        weight__ = weight__[cols].drop([cash_equiv], axis=1)
 
         bar_w = 0.8
         fig_h = len(weight__)/3.0

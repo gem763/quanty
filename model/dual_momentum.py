@@ -5,191 +5,207 @@ from pandas.tseries.offsets import Day
 from numba import njit, float64, int64, int32, boolean
 
 
-@njit#(float64[:](int64, int64[:], float64[:,:], int32[:,:]))
-def _signal_nb(i_date, i_ref, p_ref_val, sig_w):
-    r = p_ref_val[i_date] / p_ref_val[i_ref[i_ref<i_date][-len(sig_w):]] - 1.0
-    r *= sig_w[-r.shape[0]:]
-    
-    n = p_ref_val.shape[1]
-    out = np.empty(n)
-    
-    for col in range(n):
-        out[col] = r[:,col].sum()
-    
-    return out
-    
-
-@njit#(float64[:,:](int64[:], int64[:], float64[:,:], int32[:,:]))
-def _signal_all_nb(i_dates, i_ref, p_ref_val, sig_w):
-    out = np.empty((len(i_dates), p_ref_val.shape[1]))
-        
-    for i,i_date in enumerate(i_dates):
-        out[i,:] = _signal_nb(i_date, i_ref, p_ref_val, sig_w)
-        
-    return out
-    
-    
-@njit#(boolean(int64, int64, int64, float64[:,:], int64))
-def _has_ma_mtum_single_nb(i_date, term_short, term_long, p_ref_val, i_asset):
-    p = p_ref_val[:i_date+1,i_asset]
-    p_ma_short = np.nanmean(p[-term_short:])
-    p_ma_long = np.nanmean(p[-term_long:])
-    return p_ma_short>p_ma_long
-    
-
-@njit#(boolean[:](int64, int64, int64, float64[:,:]))
-def _has_ma_mtum_nb(i_date, term_short, term_long, p_ref_val):
-    n = p_ref_val.shape[1]
-    out = np.empty(n, dtype=boolean)
-    
-    for i_asset in range(n):
-        out[i_asset] = _has_ma_mtum_single_nb(i_date, term_short, term_long, p_ref_val, i_asset)
-        
-    return out
-
-
-@njit#(boolean[:,:](int64[:], int64, int64, float64[:,:]))
-def _has_ma_mtum_all_nb(i_dates, term_short, term_long, p_ref_val):
-    out = np.empty((len(i_dates), p_ref_val.shape[1]), dtype=boolean)
-        
-    for i,i_date in enumerate(i_dates):
-        out[i,:] = _has_ma_mtum_nb(i_date, term_short, term_long, p_ref_val)
-        
-    return out
-
-
-@njit#(boolean[:,:](int64[:], int64, int64, float64[:,:], int64))
-def _has_ma_mtum_all_single_nb(i_dates, term_short, term_long, p_ref_val, i_asset):
-    out = np.empty((len(i_dates), 1), dtype=boolean)
-
-    for i,i_date in enumerate(i_dates):
-        out[i,:] = _has_ma_mtum_single_nb(i_date, term_short, term_long, p_ref_val, i_asset)
-
-    return out
-
-
 
 class DualMomentum(object):
     def __init__(self, **params):
         self.__dict__.update(**params)
         
-        dates_ref = pd.date_range(self.p_ref.index[0], self.p_ref.index[-1], freq='M')
-        self.i_ref = self.p_ref.index.get_indexer(dates_ref, method='ffill')
-        self.i_dates = self.p_ref.index.get_indexer(self.dates_asof, method='ffill')
-        self.p_ref_val = self.p_ref.values
-        #self.p_close_val = self.p_close.values
-        self.sig_w = np.array(self.sig_w).reshape(-1,1)
+        self.assets_score, self.assets_sig = self._assets()
+        self.sig, self.sig_w = self._signal()
+        self.has_trend, self.has_trend_sp = self._trend()
+        self.score, self.ranks = self._score()
+        self.selection = self._selection_all()
         
-        self.sig, self.is_tradable = self._signal()
-        self.selection, self.ranks = self._selection_all()
+        
+    def _assets(self):
+        assets_score = self.assets
+        assets_sig = assets_score | {self.cash_equiv, self.supporter}
+        if self.market is not None: assets_sig.update({self.market})
 
+        return list(assets_score), list(assets_sig)
         
-    def _bet_of(self, asset):
-        if asset in dict(self.overwrite_to_bet):
-            return dict(self.overwrite_to_bet)[asset]
+        
+    def _trend(self):
+        has_trend = self._has_trend(self.follow_trend).loc[self.dates_asof]
+        has_trend_sp = self._has_trend(self.follow_trend_supporter, asset=self.supporter).loc[self.dates_asof]
+        return has_trend, has_trend_sp
+    
+
+    def _score(self):
+        #score = self.sig[self.assets_score].copy() 
+        #이렇게하면 assets_score에 supporter가 없는 경우, (즉 supporter가 assets_sig 에만 있는 경우)
+        #supporter의 랭크가 ranks에서 빠져서, supporter가 weights에서 제외되므로, 
+        #반드시 assets_score에 supporter를 추가해야한다. 
+        
+        score = self.sig.copy()
+        score[list(set(score.columns)-set(self.assets_score))] = np.nan
+        score[~self.has_trend] = np.nan
+        ranks = score.rank(axis=1, ascending=False, na_option='bottom')
+        return score, ranks
+        
+        
+    #def _bet_of(self, asset):
+    #    if asset in dict(self.overwrite_to_bet):
+    #        return dict(self.overwrite_to_bet)[asset]
+    #    else:
+    #        return asset
+
+
+    def _sig_dynamic_mix_by_n_fwd(self, n_fwd):
+        n_backs = range(21*self.sig_dyn_m_backs, 0, -21)
+        n_sample = self.sig_dyn_n_sample
+        n_delay = 0
+        pr = self.p_close[list(self.assets)]
+        
+        def _get_cor(n_back):
+            p1 = pr.shift(n_fwd+n_delay)
+            p2 = pr
+            perf_past = p1.pct_change(n_back)# / p1.pct_change().rolling(n_back).std()
+            perf_fut = p2.pct_change(n_fwd)# / p2.pct_change().rolling(n_fwd).std()
+            return perf_past.corrwith(perf_fut, axis=1).rolling(n_sample).mean()
+        
+        return pd.DataFrame({n_back:_get_cor(n_back) for n_back in n_backs})[list(n_backs)].fillna(0)
+
+
+    def _sig_dynamic_mix(self): 
+        out = pd.DataFrame()
+        for n_fwd in self.sig_dyn_fwd:
+            out = out.add(self._sig_dynamic_mix_by_n_fwd(n_fwd)/n_fwd, fill_value=0)
+
+        out /= sum(1/np.array(self.sig_dyn_fwd))
+        out = out[(out>self.sig_dyn_thres) | (out<-self.sig_dyn_thres)]        
+        return out.fillna(0)
+                
+        
+    def _signal_with(self, sig_w):
+        sig = []
+        n_sig = sig_w.shape[1]
+        pr = self.p_close[self.assets_sig].resample('M').ffill()
+        pr.index = self.p_close.index[self.p_close.index.get_indexer(pr.index, method='ffill')]
+        
+        def __sig_at(date):
+            sig_w_ = sig_w.loc[date]
+            pr_ = pr.loc[:date].iloc[-n_sig-1:]
+            rt = (pr_.iloc[-1]/pr_.iloc[:-1]-1).replace(np.inf, np.nan)
+            sig_w_ = sig_w_.iloc[-len(rt):]
+            return rt.mul(sig_w_.values, axis=0).sum(skipna=False)
+
+        return pd.DataFrame([__sig_at(date) for date in self.dates_asof], index=self.dates_asof)
+        
+    
+    
+    def _sig_w(self):
+        sig_w = self.sig_w_base
+        
+        if self.sig_w_dynamic:
+            mixer = self._sig_dynamic_mix()
+            sig_w_ = np.zeros(mixer.shape[1])
+            sig_w_[-len(sig_w):] = sig_w
+            return mixer.add(sig_w_)
+        
         else:
-            return asset
-
+            return pd.DataFrame([sig_w]*len(self.dates_asof), index=self.dates_asof)
+    
         
+                
     def _signal(self):
-        sig = _signal_all_nb(self.i_dates, self.i_ref, self.p_ref_val, self.sig_w)
-        sig = pd.DataFrame(sig, index=self.dates_asof, columns=self.assets).rename(columns=dict(self.overwrite_to_bet))
-        is_tradable = self.p_close.reindex(index=self.dates_asof, method='ffill').notnull()
-        sig[~is_tradable] = np.nan
-
-        return sig, is_tradable
+        sig_w = self._sig_w()
+        sig = self._signal_with(sig_w)
+        return sig, sig_w
 
 
     def _selection_all(self):
-        selection = []
-        ranks = []
-        
-        for i, i_date in enumerate(self.i_dates):
-            selection_, ranks_ = self._selection(self.sig.iloc[i], self.is_tradable.iloc[i], i_date)
-            selection.append(selection_)
-            ranks.append(ranks_)
-        
-        selection = pd.DataFrame(selection, index=self.dates_asof)
-        ranks = pd.DataFrame(ranks, index=self.dates_asof)
-        return selection, ranks
-    
-    
-    def _selection(self, sig, is_tradable, i_date):
-        has_rf_ma_mtum = self._has_ma_mtum_single(i_date, self.follow_trend_riskfree, self.riskfree)
-        #set_trace()
-        has_rf_positive_sig = sig.loc[self._bet_of(self.riskfree)]>=0
-        
-        if self.support_cash and is_tradable[self._bet_of(self.riskfree)] and (has_rf_ma_mtum or has_rf_positive_sig):
-            pos, ranks = self._get_default_selection(i_date, sig, self.n_picks-1)
-            pos_rf = self.n_picks - pos.sum()
-            pos_cash = 0
-            
-            if has_rf_ma_mtum and has_rf_positive_sig:
-                pass
-            
-            elif has_rf_ma_mtum:
-                pos_rf = int(pos_rf*0.5)
-              
-            elif has_rf_positive_sig:
-                pos_rf = int(pos_rf*0.5)
-          
-        else:
-            pos, ranks = self._get_default_selection(i_date, sig, self.n_picks)
-            pos_rf = 0
+        return pd.DataFrame([self._selection(date) for date in self.dates_asof], index=self.dates_asof)   
 
-            if is_tradable[self._bet_of(self.cash_equiv)]:
+
+    def _selection(self, date):
+        pos_sp = pos_cash = 0
+
+        sp_has_trend = self.has_trend_sp.loc[date]
+        sp_has_positive_sig = self.sig.loc[date, self.supporter]>=0
+        cash_has_positive_sig = self.sig.loc[date, self.cash_equiv]>=0
+        
+        if self.support_cash and (sp_has_trend or sp_has_positive_sig):
+            pos = self._get_default_selection(date, self.n_picks-1)
+            pos_sp = self.n_picks - pos.sum()
+
+            if sp_has_trend and sp_has_positive_sig:
+                pass
+
+            elif sp_has_trend:
+                pos_sp = int(pos_sp*0.5)
+
+            elif sp_has_positive_sig:
+                pos_sp = int(pos_sp*0.5)
+
+        else:
+            pos = self._get_default_selection(date, self.n_picks)
+
+            if cash_has_positive_sig:# and cash_has_trend:
                 pos_cash = self.n_picks - pos.sum()
-                
-            else:
-                pos_cash = 0
-                
-          
-        pos.loc[self._bet_of(self.riskfree)] += pos_rf  
+
+        pos = self._selection_add(pos, self.supporter, pos_sp)
+        pos = self._selection_add(pos, self.cash_equiv, pos_cash)
         
+        return pos
+    
+    
+    def _selection_add(self, pos, asset, value):
         try:
-            pos.loc[self._bet_of(self.cash_equiv)] += pos_cash
-            
+            pos.loc[asset] += value
+
         except:
-            pos.loc[self._bet_of(self.cash_equiv)] = pos_cash
-        
-        return pos, ranks
+            pos.loc[asset] = value
+            
+        return pos
     
     
-    def _get_default_selection(self, i_date, sig, n_picks):
-        score = self._screen_by_ma_mtum(sig.copy(), i_date, self.follow_trend)
-        ranks = score.rank(ascending=False, na_option='bottom')
+    def _get_oversold(self, date):
+        p_ = self.p_close.loc[:date].iloc[-20:]
+        z = -((p_-p_.mean())/p_.std()).iloc[-1]
+        return z.rank(ascending=False)<=3
+            
+
+    def _get_default_selection(self, date, n_picks):
+        score = self.score.loc[date]
+        ranks = self.ranks.loc[date]
+        sig = self.sig.loc[date]
         
         if self.mode=='DualMomentum':
-            pos = (score>0) & (ranks<1+n_picks)
-            if self.overall_market_check:
-                pos &= (sig.loc[self._bet_of(self.market)]>0)
+            pos = (score>0) & (ranks<=n_picks)
+            if self.market is not None:
+                pos &= (sig.loc[self.market]>0)
+                #pos &= (ranks<ranks[self.market])
           
         elif self.mode=='RelativeMomentum':
-            pos = ranks<1+n_picks
+            pos = ranks<=n_picks
           
         elif self.mode=='AbsoluteMomentum':
             pos = (score>0)
-            if self.overall_market_check:
-                pos &= (sig.loc[self._bet_of(self.market)]>0)
+            if self.market is not None:
+                pos &= (sig.loc[self.market]>0)
                 
-        return pos.astype(int), ranks
+        #elif self.mode=='Rebound':
+        #    p_ = self.p_close.loc[:date].iloc[-20:]
+        #    z = -((p_-p_.mean())/p_.std()).iloc[-1]
+        #    pos = z.rank(ascending=False)<=n_picks
+                
+        #if sum(pos)<=0:
+            #set_trace()
+            #pos |= (self._get_oversold(date) & (sig>0))
+        
+        return pos.astype(int)
+
     
-    
-    def _screen_by_ma_mtum(self, score, i_date, terms):
-        if terms is not None:
-            has_ma_mtum = _has_ma_mtum_nb(i_date, terms[0], terms[1], self.p_ref_val)
-            score.loc[~has_ma_mtum] = np.nan
+    def _has_trend(self, terms, asset=None):
+        if asset is None:
+            ma_short = self.p_close.rolling(terms[0]).mean()#, min_periods=2).mean() #
+            ma_long = self.p_close.rolling(terms[1]).mean()#, min_periods=2).mean()
             
-        return score
-        
-      
-    def _has_ma_mtum_single(self, i_date, terms, asset_ref):
-        if terms is not None:
-            i_asset = self.p_ref.columns.get_loc(asset_ref)
-            has_ma_mtum = _has_ma_mtum_single_nb(i_date, terms[0], terms[1], self.p_ref_val, i_asset)
-        
         else:
-            has_ma_mtum = True
+            ma_short = self.p_close[asset].rolling(terms[0]).mean()#, min_periods=2).mean()
+            ma_long = self.p_close[asset].rolling(terms[1]).mean()#, min_periods=2).mean()
             
-        return has_ma_mtum    
+        return ma_short>ma_long    
+    
     

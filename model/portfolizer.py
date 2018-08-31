@@ -13,8 +13,95 @@ class Portfolio(object):
         self.downrisk = []
         self.uprisk = []
         
+    
+    def _get_pos_sig(self, selection, sig):
+        sig_ = sig[selection!=0]
+        sig_[sig_<=0] = sig_[sig_>0].mean()
+        return selection * sig_
+
+    
+    def _get_pos_iv(self, selection, date):
+        i_date = self.p_close.index.get_loc(date, method='ffill')
+        df = self.p_close.iloc[i_date+1-self.iv_period:i_date+1]
+
+        # Underlying index 중에 종종 일일데이터가 없는 경우가 있다
+        # 이 종목은 변동성이 매우 작을 것이므로, 제거한다
+        has_enough = pd.Series({k:df[k].nunique() for k in df}) > self.iv_period/2.0
+        std = df[has_enough.index[has_enough]].pct_change().std()
+        return selection / std
+    
+    
+    def _get_pos_eaa(self, sig, date):
+        pr = self.p_close
+        rt = pr.loc[pr.index<date, sig.index].iloc[-251:].pct_change().iloc[1:]
+        #rt_short = rt.iloc[-20:]
+        rt_ew = rt.mean(axis=1)
+        cor = rt.corrwith(rt_ew)
+        #cor = rt_short.cov().dot(np.ones(len(sig)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
+
+        sig_ = sig.copy()
+        sig_[sig_<0] = 0
+
+        eaa_wr = 1e-6 if self.eaa_wr==0 else self.eaa_wr
+        score = (sig_**eaa_wr) * ((1-cor)**self.eaa_wc)
+        ranks = score.rank(ascending=False, na_option='bottom')
+        sel = (sig_>0) & (score>0) & (ranks<1+self.n_picks)
+        sel = sel.astype(int)
+        sel.loc[self.cash_equiv] += (self.n_picks - sel.sum())
+        #sel.loc[self._bet_of(self.cash_equiv)] += (self.n_picks - sel.sum())
+        return sel*score
+    
+    
+    def _get_pos_eaa_mod(self, selection, sig, date):
+        pr = self.p_close
+        rt = pr.loc[pr.index<date, selection.index].iloc[-251:].pct_change().iloc[1:]
+        rt_ew = rt.mean(axis=1)
+        cor = rt.corrwith(rt_ew)
+        sig_ = sig[selection!=0]
+        sig_[~(sig_>0)] = sig_[sig_>0].mean()
+        return selection * ((sig_**self.eaa_wr) * ((1-cor)**self.eaa_wc))
+    
+    
+    def _get_pos_eaa_optima(self, selection, sig, date):
+        pr = self.p_close
+        rt = pr.loc[pr.index<date, selection.index].iloc[-251:].pct_change().iloc[1:]
+        rt_ew = rt.mean(axis=1)
+        cor = rt.corrwith(rt_ew)
+
+        n_grid = 2 * self.eaa_wr_bnd + 1
+        wrs = np.linspace(-self.eaa_wr_bnd, self.eaa_wr_bnd, n_grid)
+        wcs = np.array([self.eaa_wc])
+        rt_short = rt.iloc[-self.eaa_short_period:]
+
+        sig_ = sig[selection!=0]
+        #sig_[~(sig_>0)] = sig_[sig_>0].mean()
+        #cor = rt_short.cov().dot(np.ones(len(selection)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
+
+        def score_(wr_, wc_):
+            pos_ = selection * ((sig_**wr_) * ((1-cor)**wc_))
+            pos_.fillna(0, inplace=True)
+            #pos_ /= pos_.sum() 
+            #rt_expected = (sig_ * pos_).sum()
+            rt_expected = (rt_short.sum() * pos_).sum()
+            #vol = (pos_.T.dot(rt.cov()).dot(pos_))**0.5
+            return rt_expected# / vol#- (pos_**2).sum()
+
+        candidates = np.array([[score_(wr_, wc_) for wc_ in wcs] for wr_ in wrs])
+        i_wr, i_wc = np.unravel_index(candidates.argmax(), candidates.shape)
+        wr = wrs[i_wr]
+        wc = wcs[i_wc]
+        self.wr.append(wr)
+        self.wc.append(wc)
+
+        return selection * ((sig_**wr) * ((1-cor)**wc))
+    
         
-    def get(self, selection, date, sig, ranks, wealth, model_rtn):
+        
+    def get(self, date, dm, wealth, model_rtn):
+        #if date==pd.Timestamp('2003-02-28'): set_trace()
+        selection = dm.selection.loc[date]
+        sig = dm.sig.loc[date]
+        ranks = dm.ranks.loc[date]
 
         if self.w_type=='ew':
             pos = selection
@@ -32,93 +119,72 @@ class Portfolio(object):
             pos = selection * (ranks**0.5)
             
         elif self.w_type=='sig':
-            sig_ = sig[selection!=0]
-            sig_[sig_<=0] = sig_[sig_>0].mean()
-            pos = selection * sig_
+            pos = self._get_post_sig(selection, sig)
             
         elif self.w_type=='iv':
-            i_date = self.p_close.index.get_loc(date, method='ffill')
-            df = self.p_close.iloc[i_date+1-self.iv_period:i_date+1]
-            
-            # Underlying index 중에 종종 일일데이터가 없는 경우가 있다
-            # 이 종목은 변동성이 매우 작을 것이므로, 제거한다
-            has_enough = pd.Series({k:df[k].nunique() for k in df}) > self.iv_period/2.0
-            std = df[has_enough.index[has_enough]].pct_change().std()
-            pos = selection / std
-           
-                    
+            pos = self._get_pos_iv(selection, date)
+    
         elif self.w_type=='eaa':
-            pr = self.p_close
-            rt = pr.loc[pr.index<date, sig.index].iloc[-251:].pct_change().iloc[1:]
-            #rt_short = rt.iloc[-20:]
-            rt_ew = rt.mean(axis=1)
-            cor = rt.corrwith(rt_ew)
-            #cor = rt_short.cov().dot(np.ones(len(sig)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
-            
-            sig_ = sig.copy()
-            sig_[sig_<0] = 0
-            
-            eaa_wr = 1e-6 if self.eaa_wr==0 else self.eaa_wr
-            score = (sig_**eaa_wr) * ((1-cor)**self.eaa_wc)
-            ranks = score.rank(ascending=False, na_option='bottom')
-            sel = (sig_>0) & (score>0) & (ranks<1+self.n_picks)
-            sel = sel.astype(int)
-            sel.loc[self._bet_of(self.cash_equiv)] += (self.n_picks - sel.sum())
-            pos = sel * score
-            
+            pos = self._get_pos_eaa(sig, date)
             
         elif self.w_type=='eaa_mod':
-            pr = self.p_close
-            rt = pr.loc[pr.index<date, selection.index].iloc[-251:].pct_change().iloc[1:]
-            rt_ew = rt.mean(axis=1)
-            cor = rt.corrwith(rt_ew)
-            sig_ = sig[selection!=0]
-            sig_[~(sig_>0)] = sig_[sig_>0].mean()
-            pos = selection * ((sig_**self.eaa_wr) * ((1-cor)**self.eaa_wc))
-            
+            pos = self._get_pos_eaa_mod(selection, sig, date)
             
         elif self.w_type=='eaa_optima': 
-            pr = self.p_close
-            rt = pr.loc[pr.index<date, selection.index].iloc[-251:].pct_change().iloc[1:]
-            rt_ew = rt.mean(axis=1)
-            cor = rt.corrwith(rt_ew)
+            pos = self._get_pos_eaa_optima(selection, sig, date)
 
-            n_grid = 2 * self.eaa_wr_bnd + 1
-            wrs = np.linspace(-self.eaa_wr_bnd, self.eaa_wr_bnd, n_grid)
-            wcs = np.array([1])
-            rt_short = rt.iloc[-20:]
-            
-            sig_ = sig[selection!=0]
-            #sig_[~(sig_>0)] = sig_[sig_>0].mean()
-            #cor = rt_short.cov().dot(np.ones(len(selection)))/rt_short.std()/((rt_short.cov().sum().sum())**0.5)
-          
-            def score_(wr_, wc_):
-                pos_ = selection * ((sig_**wr_) * ((1-cor)**wc_))
-                pos_.fillna(0, inplace=True)
-                #pos_ /= pos_.sum() 
-                #rt_expected = (sig_ * pos_).sum()
-                rt_expected = (rt_short.sum() * pos_).sum()
-                #vol = (pos_.T.dot(rt.cov()).dot(pos_))**0.5
-                return rt_expected# / vol#- (pos_**2).sum()
-            
-            candidates = np.array([[score_(wr_, wc_) for wc_ in wcs] for wr_ in wrs])
-            i_wr, i_wc = np.unravel_index(candidates.argmax(), candidates.shape)
-            wr = wrs[i_wr]
-            wc = wcs[i_wc]
-            self.wr.append(wr)
-            self.wc.append(wc)
-            
-            pos = selection * ((sig_**wr) * ((1-cor)**wc))
-            
-        
         # Normalize
         pos /= pos.sum()
-        pos = pos.fillna(0)
-        weight, pos = self._cash_control(date, pos, sig, wealth, model_rtn)
-        weight, eta = self._te_control(date, weight, wealth)
+        pos = pos.fillna(0).clip_upper(self.w_max)
 
+        weight, pos = self._cash_control(date, pos, sig, wealth, model_rtn)
+        weight = self._weight_to_trade(weight, date)
+        weight, eta = self._te_control(date, weight, wealth)
+            
         return weight, pos, eta
 
+
+    def _set_weight(self, weight, asset, w):
+        try:
+            weight.loc[asset] += w
+        except:
+            weight.loc[asset] = w
+
+        return weight
+    
+    
+    def _weight_to_trade(self, weight, date):
+        trade_assets = dict(self.trade_assets)
+        
+        for asset in weight[weight!=0].index:
+            asset_weight = weight[asset]
+            
+            if asset in trade_assets:
+                #if date==pd.Timestamp('2003-02-28'): set_trace()
+                
+                if asset in trade_assets[asset].keys():
+                    for k,v in trade_assets[asset].items():
+                        if self._is_tradable(date, k):
+                            if k==asset:
+                                weight[k] = asset_weight*v
+                            else: 
+                                weight = self._set_weight(weight, k, asset_weight*v)
+
+                else:
+                    for k,v in trade_assets[asset].items():
+                        if self._is_tradable(date, k):
+                            w_ = asset_weight*v
+                            weight = self._set_weight(weight, k, w_)
+                            asset_weight -= w_
+                            
+                    if self._is_tradable(date, asset):
+                        weight[asset] = asset_weight
+                
+        return weight
+    
+    
+    def _is_tradable(self, date, asset):
+        return not np.isnan(self.p_close.loc[date, asset])
     
     
     def _te_control(self, date, weight, wealth):
@@ -162,16 +228,17 @@ class Portfolio(object):
                 
                 eta = np.min([eta, eta_max])
 
-                
+
             if self.te_short_up_down_ratio_cap:
                 te_exante_short_up = self._get_te_exante_semi(date, weight, self.te_short_period, opts='up')
-                te_exante_short_down = self._get_te_exante_semi(date, weight, self.te_short_period, opts='down')                
-                #self.downrisk.append(te_down)
-                #self.uprisk.append(te_up)
+                te_exante_short_down = self._get_te_exante_semi(date, weight, self.te_short_period, opts='down')
+                self.downrisk.append(te_exante_short_down)
+                self.uprisk.append(te_exante_short_up)
                 
                 if te_exante_short_up==0 or te_exante_short_down==0:
                     eta_max = 1
                 else:
+                    #eta_max = np.min([te_exante_short_up/te_exante_short_down, 1])
                     eta_max = np.min([self.safety_buffer*te_exante_short_up/te_exante_short_down, 1])
                 
                 eta = np.min([eta, eta_max])
@@ -209,20 +276,21 @@ class Portfolio(object):
         elif self.cm_method==None:
             weight = pos.copy()
                 
-        pos.loc[self._bet_of(self.cash_equiv)] = 0.0
-        pos.loc[self._bet_of(self.cash_equiv)] = 1.0 - pos.sum()
+        pos.loc[self.cash_equiv] = 0.0 #[self._bet_of(self.cash_equiv)] = 0.0
+        pos.loc[self.cash_equiv] = 1.0 - pos.sum() #self._bet_of(self.cash_equiv)] = 1.0 - pos.sum()
 
-        weight.loc[self._bet_of(self.cash_equiv)] = 0.0
-        weight.loc[self._bet_of(self.cash_equiv)] = 1.0 - weight.sum()
+        weight.loc[self.cash_equiv] = 0.0 #self._bet_of(self.cash_equiv)] = 0.0
+        weight.loc[self.cash_equiv] = 1.0 - weight.sum() #self._bet_of(self.cash_equiv)] = 1.0 - weight.sum()
         
+        weight[abs(weight)<0.0001] = 0.0
         return weight, pos
 
     
-    def _bet_of(self, asset):
-        if asset in dict(self.overwrite_to_bet):
-            return dict(self.overwrite_to_bet)[asset]
-        else:
-            return asset
+    #def _bet_of(self, asset):
+    #    if asset in dict(self.overwrite_to_bet):
+    #        return dict(self.overwrite_to_bet)[asset]
+    #    else:
+    #        return asset
         
     
     def _get_te_exante(self, date, weight, n_period):
