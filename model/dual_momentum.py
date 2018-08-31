@@ -175,6 +175,7 @@ class DualMomentum(object):
             pos = (score>0) & (ranks<=n_picks)
             if self.market is not None:
                 pos &= (sig.loc[self.market]>0)
+                #pos &= (sig.loc[self.market]>=sig.loc[self.supporter])
                 #pos &= (ranks<ranks[self.market])
           
         elif self.mode=='RelativeMomentum':
