@@ -12,7 +12,7 @@ class DualMomentum(object):
         
         self.assets_score, self.assets_sig = self._assets()
         self.sig, self.sig_w = self._signal()
-        self.has_trend, self.has_trend_sp = self._trend()
+        self.has_trend, self.has_trend_sp, self.has_trend_market = self._trend()
         self.score, self.ranks = self._score()
         self.selection = self._selection_all()
         
@@ -28,7 +28,12 @@ class DualMomentum(object):
     def _trend(self):
         has_trend = self._has_trend(self.follow_trend).loc[self.dates_asof]
         has_trend_sp = self._has_trend(self.follow_trend_supporter, asset=self.supporter).loc[self.dates_asof]
-        return has_trend, has_trend_sp
+        
+        has_trend_market = None
+        if self.market is not None:
+            has_trend_market = self._has_trend(self.follow_trend_market, asset=self.market).loc[self.dates_asof]
+            
+        return has_trend, has_trend_sp, has_trend_market
     
 
     def _score(self):
@@ -174,7 +179,9 @@ class DualMomentum(object):
         if self.mode=='DualMomentum':
             pos = (score>0) & (ranks<=n_picks)
             if self.market is not None:
-                pos &= (sig.loc[self.market]>0)
+                #pos &= (sig.loc[self.market]>0)
+                pos &= (self.has_trend_market[date]) | (sig.loc[self.market]>0)# | (ranks<=ranks[self.market])
+                #|(sig.loc[self.market]>sig.loc[self.supporter])
                 #pos &= (sig.loc[self.market]>=sig.loc[self.supporter])
                 #pos &= (ranks<ranks[self.market])
           
