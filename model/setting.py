@@ -1,5 +1,149 @@
-assets_eq_global = {
-    #'ACWI',
+assets_region = {
+    'ACWI', 
+    'US_Total', 
+    'Global', 
+    'EU', 
+    'Developed', 
+    'EM', 
+    'Asia_xJp', 
+    'BRIC', 
+    'Frontier', 
+    'Latam', 
+}
+
+assets_fx = {
+    'USD_UP', 
+    'JPY', 
+    'EUR', 
+    'AUD', 
+    'CAD', 
+    'CHF', 
+    'GBP', 
+    'USD_DOWN', 
+}
+
+
+assets_comdty = {
+    'Comdty', 
+    'WTI', 
+    'Gold', 
+    'Silver', 
+    'Agriculture', 
+    'NatGas', 
+    'Engy', 
+    'BaseMetal', 
+    'PrecMetal', 
+}
+
+
+assets_kr_factor = {
+    'ESG_kr', 
+    'LowVol_kr', 
+    'Growth_kr', 
+    'Quality_kr', 
+    'Value_kr', 
+    #'K200_2', 
+    #'EW_kr_2', 
+    'Midcap_kr', 
+    #'DvdGrowth_kr_2', 
+    'HighDvd_kr', 
+    #'KSP_2', 
+    #'KTB3Y', 
+    #'K200L2', 
+    #'LowVol_kr_2', 
+    'Momentum_kr', 
+    #'Quality_kr_2', 
+    'Turnaround_kr', 
+    #'Value_kr_2', 
+    #'KTB10Y', 
+    #'KTB10YL', 
+    'K200', 
+    'EW_kr', 
+    'HighBeta_kr', 
+    'Contrarian_kr', 
+    'DvdGrowth_kr', 
+    'DvdSust_kr', 
+    #'KSP', 
+    #'HighDvd_kr_2', 
+    #'K200L', 
+    #'LowVol_kr_3', 
+    'MomentumGrowth_kr', 
+    'Pref_kr', 
+}
+
+assets_us_factor = {
+    'Quality', 
+    'Value', 
+    'Growth', 
+    'Momentum', 
+    'Momentum_EM', 
+    'DvdApprec', 
+    'HighDvd', 
+    'HighBeta', 
+    'LowBeta', 
+    'LowVol', 
+    'HighFCF', 
+    'Defensive', 
+    'EW', 
+    '130/30', 
+    'Gender', 
+    'CoveredCall', 
+    'HedgefundHold', 
+    'Moat', 
+    'LongShort', 
+    'ManagedFut', 
+    'M&A', 
+    'ESG', 
+    'IPO', 
+    'Insider', 
+    'Insider2', 
+    'SmallCap', 
+    'Xrate_Lowvol', 
+}
+
+
+assets_us_sector = {
+    'Material', 
+    'ConsumerDiscretionary', 
+    'ConsumerStaples', 
+    'Energy', 
+    'Financial', 
+    'Healthcare', 
+    'Industry', 
+    'REIT', 
+    'Tech',
+    'Telcom', 
+    'Utility', 
+}
+
+assets_fi = {
+    #'BND_US_AGG', #
+    'BND_US_Short',
+    'BND_US_Interm',
+    #'BND_US_Long', #
+    'BND_US_TIP',
+    'BND_US_IG',
+    'BND_US_HY',
+    'BND_US_MBS',
+    'BND_US_Muni',
+    'BND_US_Bankloan',
+    'BND_US_CB',
+    'BND_US_HY_Muni',
+    'BND_US_Pref',
+
+    'BND_GlobalSov_loc',
+    'BND_GlobalTip_loc',
+    'BND_GlobalSov_loch',
+    'BND_DevSov_loc',
+    'BND_DevFloat_usd',
+    'BND_DevIG_loc',
+    'BND_DevHY_loc',
+    'BND_EmSov_usd',
+    'BND_EmSov_loc',
+    'BND_EmHy_usd',
+}
+
+assets_global_eq = {
     'US',
     'Canada',
     'Mexico',
@@ -41,8 +185,6 @@ assets_eq_global = {
     'Chile',
     'Colombia',
     'Saudi',
-    #'BND_US_Interm',
-    #'BND_US_Long',
 }
 
 
