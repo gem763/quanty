@@ -2,23 +2,15 @@ import numpy as np
 import pandas as pd
 from IPython.core.debugger import set_trace
 from pandas.tseries.offsets import Day
+from numba import njit, float64, int64, int32, boolean
+
 
 
 class DualMomentum(object):
     def __init__(self, **params):
         self.__dict__.update(**params)
+        
         self.assets_score, self.assets_sig = self._assets()
-        
-        #self.sig = pd.DataFrame()
-        #self.sig_w = pd.DataFrame()
-        #self.has_trend = pd.DataFrame()
-        #self.has_trend_sp = pd.Series()
-        #self.has_trend_market = pd.Series()
-        #self.score = pd.DataFrame()
-        #self.ranks = pd.DataFrame()
-        #self.selection = pd.DataFrame()
-        
-        
         self.sig, self.sig_w = self._signal()
         self.has_trend, self.has_trend_sp, self.has_trend_market = self._trend()
         self.score, self.ranks = self._score()
@@ -34,12 +26,14 @@ class DualMomentum(object):
         
         
     def _trend(self):
-        has_trend = self._has_trend(self.follow_trend).reindex(index=self.dates_asof, method='ffill')
+        has_trend = self._has_trend(self.follow_trend).reindex(index=self.dates_asof, method='ffill') #.loc[self.dates_asof]
         has_trend_sp = self._has_trend(self.follow_trend_supporter, asset=self.supporter).reindex(index=self.dates_asof, method='ffill') 
+        #.loc[self.dates_asof]
         
         has_trend_market = None
         if self.market is not None:
             has_trend_market = self._has_trend(self.follow_trend_market, asset=self.market).reindex(index=self.dates_asof, method='ffill') 
+            #.loc[self.dates_asof]
             
         return has_trend, has_trend_sp, has_trend_market
     
@@ -52,10 +46,17 @@ class DualMomentum(object):
         
         score = self.sig.copy()
         score[list(set(score.columns)-set(self.assets_score))] = np.nan
+        #set_trace()
         score[~self.has_trend] = np.nan
         ranks = score.rank(axis=1, ascending=False, na_option='bottom')
         return score, ranks
         
+        
+    #def _bet_of(self, asset):
+    #    if asset in dict(self.overwrite_to_bet):
+    #        return dict(self.overwrite_to_bet)[asset]
+    #    else:
+    #        return asset
 
 
     def _sig_dynamic_mix_by_n_fwd(self, n_fwd):
@@ -80,8 +81,7 @@ class DualMomentum(object):
             out = out.add(self._sig_dynamic_mix_by_n_fwd(n_fwd)/n_fwd, fill_value=0)
 
         out /= sum(1/np.array(self.sig_dyn_fwd))
-        out = out[(out>self.sig_dyn_thres) | (out<-self.sig_dyn_thres)]
-        #set_trace()
+        out = out[(out>self.sig_dyn_thres) | (out<-self.sig_dyn_thres)]        
         return out.fillna(0)
                 
         
@@ -92,7 +92,9 @@ class DualMomentum(object):
         pr.index = self.p_close.index[self.p_close.index.get_indexer(pr.index, method='ffill')]
         
         def __sig_at(date):
+            #sig_w_ = sig_w.loc[:date].iloc[-1]
             sig_w_ = sig_w.reindex(index=[date], method='ffill').iloc[0]
+            #set_trace()
             pr_ = pr.loc[:date].iloc[-n_sig-1:]
             rt = (pr_.iloc[-1]/pr_.iloc[:-1]-1).replace(np.inf, np.nan)
             sig_w_ = sig_w_.iloc[-len(rt):]
@@ -168,10 +170,10 @@ class DualMomentum(object):
         return pos
     
     
-#    def _get_oversold(self, date):
-#        p_ = self.p_close.loc[:date].iloc[-20:]
-#        z = -((p_-p_.mean())/p_.std()).iloc[-1]
-#        return z.rank(ascending=False)<=3
+    def _get_oversold(self, date):
+        p_ = self.p_close.loc[:date].iloc[-20:]
+        z = -((p_-p_.mean())/p_.std()).iloc[-1]
+        return z.rank(ascending=False)<=3
             
 
     def _get_default_selection(self, date, n_picks):
@@ -195,7 +197,16 @@ class DualMomentum(object):
             pos = (score>0)
             if self.market is not None:
                 pos &= (sig.loc[self.market]>0)
-                        
+                
+        #elif self.mode=='Rebound':
+        #    p_ = self.p_close.loc[:date].iloc[-20:]
+        #    z = -((p_-p_.mean())/p_.std()).iloc[-1]
+        #    pos = z.rank(ascending=False)<=n_picks
+                
+        #if sum(pos)<=0:
+            #set_trace()
+            #pos |= (self._get_oversold(date) & (sig>0))
+        
         return pos.astype(int)
 
     
