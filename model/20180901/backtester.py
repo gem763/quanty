@@ -10,8 +10,8 @@ from tqdm import tqdm, tqdm_notebook
 
 # Custom modules
 from .plotter import Plotter as pltr
-from .dual_momentum_20180901 import DualMomentum as dm
-#from .dual_momentum import DualMomentum as dm
+#from .dual_momentum_20180808 import DualMomentum as dm
+from .dual_momentum import DualMomentum as dm
 from .portfolizer import Portfolio as port
 from ..model import evaluator as ev
 from ..model import setting
@@ -92,16 +92,23 @@ class BacktesterBase(object):
         raise NotImplementedError
 
 
-    def _prices(self):
-        db_unstacked = self.db.unstack().loc[:self.end].fillna(method='ffill')
-        
-        #assets_bet = self.assets | {self.cash_equiv}
-        #assets_bet = {dict(self.overwrite_to_bet)[asset] if asset in dict(self.overwrite_to_bet) else asset for asset in assets_bet}
-        #if self.bm is not None: assets_bet.update({self.bm})
-        
-        #assets_all = assets_bet | self.assets | {self.beta_to, self.riskfree}
-        assets_all = self.assets | {self.riskfree, self.cash_equiv, self.beta_to}
+    def _assets_all(self):
+        assets_all = self.assets | {self.supporter, self.cash_equiv, self.beta_to}
+
         if self.bm is not None: assets_all.update({self.bm})
+        if self.market is not None: assets_all.update({self.market})
+        
+        trade_assets = dict(self.trade_assets)
+        #set_trace()
+        if len(trade_assets)!=0:
+            assets_all.update(set.union(*[set(trade_assets[k].keys()) for k in trade_assets.keys() if k in assets_all]))
+        
+        return assets_all        
+        
+
+    def _prices(self):
+        assets_all = self._assets_all()
+        db_unstacked = self.db.unstack().loc[:self.end].fillna(method='ffill')
         
         p_close = db_unstacked[self.price_src].reindex(columns=assets_all)
         p_high = db_unstacked['high'].reindex(columns=assets_all)
@@ -114,17 +121,14 @@ class BacktesterBase(object):
         p_close_low.update(p_low)
         
         if self.trade_tol=='at_close':
-            #p_close = p_bet
             p_buy = p_close
             p_sell = p_close
             
         elif self.trade_tol=='buyHigh_sellLow':
-            #p_close = p_bet            
             p_buy = p_close_high
             p_sell = p_close_low
             
         elif self.trade_tol=='buyLow_sellHigh':
-            #p_close = p_bet
             p_buy = p_close_low
             p_sell = p_close_high
             
@@ -181,7 +185,7 @@ class BacktesterBase(object):
         
         
     def plot_weight(self, rng): 
-        pltr.plot_weight(self.weight, rng, self.riskfree, self.cash_equiv)
+        pltr.plot_weight(self.weight, rng, self.supporter, self.cash_equiv)
         
         
     def plot_stats(self, strats, style=None, **params):
@@ -286,14 +290,8 @@ class Backtester(BacktesterBase):
         self.model_contr = []
         
         # 의사결정일에만 기록
-        self.sig = []
-        self.ranks = []
         self.pos = []     # 듀얼모멘텀 모델 자체에서 산출되는 비중
         self.weight = []  # 최종비중 (켈리반영)
-        self.kelly = []
-        self.selection = []
-        #self.te_hist = []
-        #self.te_exante = []
         self.eta = []
         
         for date in tqdm_notebook(self.dates):
@@ -316,15 +314,9 @@ class Backtester(BacktesterBase):
                 weight_, pos_, trade_due, eta_ = self._positionize(date, weight_, trade_due)
                 pos_d_, model_rtn_, model_contr_ = self._update_pos_daily(date, pos_d_)
                 
-                #self.sig.append(sig_)
-                #self.ranks.append(ranks_)
                 self.weight.append(weight_)
                 self.pos.append(pos_)
-                #self.kelly.append(kelly_output)
-                #self.te_hist.append(te_hist_)
-                #self.te_exante.append(te_exante_)
                 self.eta.append(eta_)
-                #self.selection.append(selection_)
                 
               
             # 2. 아무일도 없는 날
@@ -345,14 +337,8 @@ class Backtester(BacktesterBase):
 
 
         # 종목별 시그널, 포지션
-        self.sig = pd.DataFrame(self.sig, index=self.dates_asof)
-        self.ranks = pd.DataFrame(self.ranks, index=self.dates_asof)
         self.weight = pd.DataFrame(self.weight, index=self.dates_asof)
         self.pos = pd.DataFrame(self.pos, index=self.dates_asof)
-        self.kelly = pd.DataFrame(self.kelly, index=self.dates_asof)
-        self.selection = pd.DataFrame(self.selection, index=self.dates_asof)
-        #self.te_hist = pd.DataFrame(self.te_hist, index=self.dates_asof)
-        #self.te_exante = pd.DataFrame(self.te_exante, index=self.dates_asof)
         self.eta = pd.DataFrame(self.eta, index=self.dates_asof)
         
         # Daily Booking
@@ -374,7 +360,7 @@ class Backtester(BacktesterBase):
             assets_ = pos_daily_last_.index[pos_daily_last_!=0]
             pos_daily_last_np = pos_daily_last_.loc[assets_].values
             r = self.r.loc[date, assets_].values
-            #if date>pd.Timestamp('2011-01-01'): set_trace()
+            
             pos_daily_last_np, model_rtn_, model_contr_ = _update_pos_daily_fast(pos_daily_last_np, r)
             
             return pd.Series(pos_daily_last_np, index=assets_), model_rtn_, pd.Series(model_contr_, index=assets_)
@@ -428,8 +414,7 @@ class Backtester(BacktesterBase):
 
 
     def _positionize(self, date, weight_asis_, trade_due):
-        selection_, sig_, ranks_ = self.dm.selection.loc[date], self.dm.sig.loc[date], self.dm.ranks.loc[date]
-        weight_, pos_, eta_ = self.port.get(selection_, date, sig_, ranks_, self.wealth, self.model_rtn)
+        weight_, pos_, eta_ = self.port.get(date, self.dm, self.wealth, self.model_rtn)
         
         if weight_.sub(weight_asis_, fill_value=0).abs().sum()!=0:
             trade_due = self.trade_delay

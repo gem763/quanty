@@ -3,7 +3,6 @@ import pandas as pd
 from IPython.core.debugger import set_trace
 from pandas.tseries.offsets import Day
 from numba import njit, float64, int64, int32, boolean
-import time
 
 
 
@@ -67,12 +66,11 @@ class DualMomentum(object):
         pr = self.p_close[list(self.assets)]
         
         def _get_cor(n_back):
-            #if n_back==441: set_trace()
             p1 = pr.shift(n_fwd+n_delay)
             p2 = pr
             perf_past = p1.pct_change(n_back)# / p1.pct_change().rolling(n_back).std()
             perf_fut = p2.pct_change(n_fwd)# / p2.pct_change().rolling(n_fwd).std()
-            return perf_past.corrwith(perf_fut, axis=1).rolling(n_sample, min_periods=2).mean()
+            return perf_past.corrwith(perf_fut, axis=1).rolling(n_sample).mean()
         
         return pd.DataFrame({n_back:_get_cor(n_back) for n_back in n_backs})[list(n_backs)].fillna(0)
 
@@ -110,9 +108,7 @@ class DualMomentum(object):
         sig_w = self.sig_w_base
         
         if self.sig_w_dynamic:
-            #st = time.time()
             mixer = self._sig_dynamic_mix()
-            #print(time.time()-st)
             sig_w_ = np.zeros(mixer.shape[1])
             sig_w_[-len(sig_w):] = sig_w
             return mixer.add(sig_w_)

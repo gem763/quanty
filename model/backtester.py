@@ -10,9 +10,10 @@ from tqdm import tqdm, tqdm_notebook
 
 # Custom modules
 from .plotter import Plotter as pltr
-#from .dual_momentum_20180808 import DualMomentum as dm
-from .dual_momentum import DualMomentum as dm
-from .portfolizer import Portfolio as port
+#from .dual_momentum_20180901 import DualMomentum as dm
+from .dual_momentum import DualMomentumPort
+#from .dual_momentum import DualMomentum as dm
+#from .portfolizer import Portfolio as port
 from ..model import evaluator as ev
 from ..model import setting
 
@@ -78,14 +79,14 @@ class BacktesterBase(object):
         })
         
         st = time.time()
-        self.dm = dm(**self.__dict__)
-        print(time.time()-st)
+        self.port = DualMomentumPort(dates_asof, **self.__dict__) 
+        #self.dm = dm(**self.__dict__)        
+        #self.port = port(**self.__dict__)
         
-        self.port = port(**self.__dict__)
-
         self._run()
         self.turnover = ev._turnover(self.weight)
         self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)
+        print(time.time()-st)
 
         
     def _run(self):
@@ -414,7 +415,10 @@ class Backtester(BacktesterBase):
 
 
     def _positionize(self, date, weight_asis_, trade_due):
-        weight_, pos_, eta_ = self.port.get(date, self.dm, self.wealth, self.model_rtn)
+        weight_ = self.port.weight.loc[date]
+        pos_ = self.port.pos.loc[date]
+        eta_ =  self.port.eta.loc[date]
+        #weight_, pos_, eta_ = self.port.get(date, self.dm, self.wealth, self.model_rtn)
         
         if weight_.sub(weight_asis_, fill_value=0).abs().sum()!=0:
             trade_due = self.trade_delay
