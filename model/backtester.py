@@ -360,11 +360,12 @@ class Backtester(BacktesterBase):
         weight_last = self._get_last_from(self.weight, alt=pd.Series())
         #eq_value_ = self._get_last_from(self.eq_value, alt=pd.Series())
         cash_last = self._get_last_from(self.wealth, inner_idx=-2, alt=self.cash)
-        date_last = self.start if len(self.wealth) else self.wealth.index[-1]
+        #date_last = self.start if len(self.wealth)==0 else self.wealth.index[-1]
         
-        return hold_last, cash_last, weight_last, date_last #eq_value_
+        return hold_last, cash_last, weight_last#, date_last #eq_value_
 
     
+    '''
     def _end_of_day(self, date, hold_, cash_, eq_value_):
         
         try:
@@ -381,80 +382,90 @@ class Backtester(BacktesterBase):
     
     def _prepare_daily_book(self, date, hold_, cash_):
         self._record_trade(date-Day(), 0, 0, 0, cash_, hold_)
-
     
-    def _booking(self, date, date_last, trade_amount_, trade_cashflow_, cost_, cash_, hold_):
-        #date_last = self.eq_value.index.max()
-        #set_trace()
-        #date_last = self.start if pd.isnull(date_last) else date_last
+    '''
+
+        
+    def _finalize_trade(self, date, trade_amount_, trade_cashflow_, cost_, cash_, hold_):
+        #cash_last = self.wealth[-1][-2]
+        #hold_last = self.hold[-1]
+        #date_last = self._fill_book(date-Day(), date_last, cash_last, hold_last)
+        
+        p_close = self.p_close[hold_.index].loc[date]
+        eq_value_update = p_close.mul(hold_)
+        value_ = eq_value_update.sum()
+        nav_ = value_ + cash_
+        wealth_update = [trade_amount_, value_, trade_cashflow_, cost_, cash_, nav_]
+        
+        self.eq_value.append(eq_value_update)
+        self.wealth.append(wealth_update)
+        
+        return date
+        
+    
+    def _fill_book(self, date, date_last, cash_, hold_):
         dates_update = self.dates[(date_last<self.dates) & (self.dates<=date)]
         
         if len(dates_update)!=0:
             p_close = self.p_close[hold_.index].reindex(dates_update, method='ffill')
             eq_value_update = p_close.mul(hold_, axis=1)#, fill_value=0)
             value_update = eq_value_update.sum(axis=1)
-            self.eq_value.append(eq_value_update) #eq_value_date를 리스트 of 시리즈로 쪼개야한다. 
 
             wealth_update = np.zeros((len(dates_update), 6)) #pd.DataFrame(columns=self.wealth.columns, index=dates_update)
-            wealth_update[:1] = value_update
-            wealth_update[:4] = cash_
-            wealth_update[:5] = value_update + cash_
-            self.wealth.append(wealth_update.tolist()) 
-            여기서부터 다시 시작한다
+            wealth_update[:,1] = value_update
+            wealth_update[:,4] = cash_
+            wealth_update[:,5] = value_update + cash_
+            
+            #self.eq_value.append(eq_value_update) #eq_value_date를 리스트 of 시리즈로 쪼개야한다.
+            #self.wealth.append(wealth_update.tolist()) 
+            
+            self.eq_value += self._split_df(eq_value_update)
+            self.wealth += wealth_update.tolist()
+            
+            #여기서부터 다시 시작한다
+            
+            date_last = dates_update[-1]
+            
+        return date_last
+    
+    
+    
+    def _split_df(self, df):
+        return [df.loc[row] for row in df.index]
     
     
     def _run(self):
+        #set_trace()
+        
+        date_last = pd.Timestamp(self.start)-Day()
         
         for date in tqdm_notebook(self.dates_asof):
-            hold_last, cash_last, weight_last, date_last = self._begin_of_day()
-            # upodate book
-            weight_ = self._positionize(date, weight_)
+            #if date==pd.Timestamp('2018-03-29'): set_trace()
+            hold_last, cash_last, weight_last = self._begin_of_day()
+            #set_trace()
+            date_last = self._fill_book(date, date_last, cash_last, hold_last)
+            weight_ = self._positionize(date)
+            self.weight.append(weight_)
             
             date_trade = self.dates[self.dates.get_loc(date) + self.trade_delay]
-            #update book
-            trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._rebalance(date_trade, hold_, cash_, weight_)
-            #update book
-        
-
-        
-        trade_due = -1        
-                
-        for date in tqdm_notebook(self.dates):
-            if date in self.p_close.index: 
-                trade_due -= 1
-                
-            # Begin of the day
-            hold_, cash_, weight_, trade_amount_, trade_cashflow_, cost_, eq_value_ = self._begin_of_day()
-                        
-            # 0. 리밸런싱 실행하는 날
-            if trade_due==0:
-                #self._prepare_daily_book(date, hold_, cash_)
-                trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._rebalance(date, hold_, cash_, weight_)
+            date_last = self._fill_book(date_trade-Day(), date_last, cash_last, hold_last)
+            
+            if date_trade in self.p_close.index:
+                trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._rebalance(date_trade, hold_last, cash_last, weight_)
                 self.hold.append(hold_)
-                #self._record_trade(date, trade_amount_, trade_cashflow_, cost_, cash_, hold_)
-
-            # 1. 리밸런싱 비중결정하는 날
-            elif date in self.dates_asof:
-                #self._prepare_daily_book(date, hold_, cash_)
-                weight_, trade_due = self._positionize(date, weight_, trade_due)                
-                self.weight.append(weight_)
-              
-            # 2. 아무일도 없는 날
-            #else:
-            #    pass
+                date_last = self._finalize_trade(date_trade, trade_amount_, trade_cashflow_, cost_, cash_, hold_)
                 
-            # End of the day
-            eq_value_, value_, nav_ = self._end_of_day(date, hold_, cash_, eq_value_)
-            self.eq_value.append(eq_value_)
-            self.wealth.append([trade_amount_, value_, trade_cashflow_, cost_, cash_, nav_])
-
-        #self._record_trade(date, 0, 0, 0, cash_, hold_)
+        
+        if self.end not in self.dates_asof:
+            self._fill_book(self.end, date_last, cash_last, hold_last)
+        
 
         # 종목별 시그널, 포지션
         self.weight = pd.DataFrame(self.weight, index=self.dates_asof)
         
         # Daily Booking
         #self.hold = pd.DataFrame(self.hold, index=self.dates)
+        #set_trace()
         self.eq_value = pd.DataFrame(self.eq_value, index=self.dates)
         self.wealth = pd.DataFrame(self.wealth, index=self.dates, columns=['trade_amount', 'value', 'trade_cashflow', 'cost', 'cash', 'nav'])
         
@@ -510,7 +521,7 @@ class Backtester(BacktesterBase):
         return trade_amount_, trade_cashflow_, cost_, cash_, hold_
 
 
-    def _positionize(self, date, weight_asis_):#, trade_due):
+    def _positionize(self, date):#, weight_asis_, trade_due):
         weight_ = self.port.weight.loc[date]
         
         #if weight_.sub(weight_asis_, fill_value=0).abs().sum()!=0:
