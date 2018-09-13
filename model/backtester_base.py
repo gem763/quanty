@@ -34,7 +34,7 @@ class BacktesterBase(object):
         self._run()
         print(time.time()-st)
         
-        self.turnover = ev._turnover(self.weight)
+        self.turnover = ev._turnover(self.port.weight)
         self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)
 
         

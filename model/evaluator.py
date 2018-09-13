@@ -116,8 +116,8 @@ def _stats(cum, beta_to, n_roll_stats):
     # Rolling stats
     #set_trace()
     cum_roll = cum.rolling(n_roll_stats)
-    cagr_roll = cum_roll.apply(_cagr)
-    std_roll = cum_roll.apply(_std)
+    cagr_roll = cum_roll.apply(_cagr, raw=True)
+    std_roll = cum_roll.apply(_std, raw=True)
     sharpe_roll = cagr_roll/std_roll
     
     cagr_roll_med = cagr_roll.median()
