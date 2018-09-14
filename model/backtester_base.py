@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import time
 from collections import namedtuple, OrderedDict
+from pandas.tseries.offsets import Day
+
 from .plotter import Plotter as pltr
 from ..model import evaluator as ev
 
@@ -119,6 +121,56 @@ class BacktesterBase(object):
             dates_asof = dates_asof.insert(0, pd.Timestamp(self.start))
 
         return dates, dates_asof
+
+
+    def _eq_value(self, date, hold_):
+        p_close = self.p_close[hold_.index].loc[date]
+        return p_close.mul(hold_)        
+    
+    
+    def _trade(self, date, weight_, hold_, cash_):
+        if self.trade_prev_nav_based:
+            pos_prev_amount = hold_*self.p_close.loc[:date-Day()].iloc[-1]
+        else:
+            pos_prev_amount = hold_*self.p_close.loc[date]
+            
+        # Planning
+        nav_prev = pos_prev_amount.sum() + cash_
+        pos_amount = self.gr_exposure * nav_prev * weight_
+        pos_buffer = nav_prev - pos_amount.sum()
+        amount_chg = pos_amount.sub(pos_prev_amount, fill_value=0)
+        amount_buy_plan = amount_chg[amount_chg>0]
+        amount_sell_plan = -amount_chg[amount_chg<0]
+
+        # Sell first
+        p_sell_ = self.p_sell.loc[date]
+        share_sell = amount_sell_plan.div(p_sell_).dropna()
+        share_sell.where(share_sell.lt(hold_), hold_, inplace=True)
+        share_sell.where(weight_>0, hold_, inplace=True) # 비중 0는 완전히 팔아라
+        amount_sell = share_sell*p_sell_
+        amount_sell_sum = amount_sell.sum()
+        cost_sell = amount_sell_sum * self.expense
+        cash_ += (amount_sell_sum - cost_sell)
+
+        # Buy next
+        p_buy_ = self.p_buy.loc[date]
+        amount_buy_plan_sum = amount_buy_plan.sum()
+        amount_buy = amount_buy_plan * np.min([amount_buy_plan_sum, cash_-pos_buffer]) / amount_buy_plan_sum
+        amount_buy_sum = amount_buy.sum()
+        share_buy = amount_buy.div(p_buy_).dropna()
+        cost_buy = amount_buy_sum * self.expense
+        cash_ += (-amount_buy_sum - cost_buy)
+
+        # 매매결과
+        cost_ = cost_buy + cost_sell
+        trade_cashflow_ = amount_sell_sum - amount_buy_sum
+        trade_amount_ = amount_sell_sum + amount_buy_sum
+
+        # 최종포지션
+        hold_ = hold_.add(share_buy, fill_value=0).sub(share_sell, fill_value=0).dropna()
+        
+        return trade_amount_, trade_cashflow_, cost_, cash_, hold_    
+    
     
     
     def plot_cum(self, strats, **params):

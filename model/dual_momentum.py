@@ -146,9 +146,9 @@ class DualMomentumSelector(object):
         self.__dict__.update(**params)
         self.assets_score, self.assets_sig = self._assets()
         
-        st = time.time()
+        #st = time.time()
         self.sig, self.sig_w = self._signal(dates_port)
-        print(time.time()-st)
+        #print(time.time()-st)
         
         self.has_trend, self.has_trend_sp, self.has_trend_market = self._trend(dates_port)
         self.score, self.ranks = self._score()
@@ -197,7 +197,7 @@ class DualMomentumSelector(object):
         ma_short = pr.rolling(terms[0]).mean()
         ma_long = pr.rolling(terms[1]).mean()
 
-        has_trend = ma_short>ma_long
+        has_trend = ma_short>=ma_long
         return has_trend.reindex(dates, method='ffill')
         
         
@@ -208,6 +208,7 @@ class DualMomentumSelector(object):
         pr.index = self.p_close.index[self.p_close.index.get_indexer(pr.index, method='ffill')]
         
         def __sig_at(date):
+            #set_trace()
             sig_w_ = sig_w.loc[date]
             pr_ = pr.loc[:date].iloc[-n_sig-1:]
             rt = (pr_.iloc[-1]/pr_.iloc[:-1]-1).replace(np.inf, np.nan)
@@ -276,18 +277,28 @@ class DualMomentumSelector(object):
         out[(out<=0.1) & (out>=-0.1)] = 0
         return out        
         
+        
+    def _n_picks(self):
+        if isinstance(self.n_picks, int):
+            return self.n_picks
+        
+        else:
+            return int(len(self.assets_score) * self.n_picks)
+            #return int(self.p_close[self.assets_score].loc[:date].iloc[-1].count() * self.n_picks)
+        
 
     def _selection(self):
         def __selection(date):
             pos_sp = pos_cash = 0
 
+            n_picks = self._n_picks()
             sp_has_trend = self.has_trend_sp.loc[date]
             sp_has_positive_sig = self.sig.loc[date, self.supporter]>=0
             cash_has_positive_sig = self.sig.loc[date, self.cash_equiv]>=0
-
-            if self.support_cash and (sp_has_trend or sp_has_positive_sig):
-                pos = self._get_default_selection(date, self.n_picks-1)
-                pos_sp = self.n_picks - pos.sum()
+            
+            if (self.support_cash and (sp_has_trend or sp_has_positive_sig)) or (not self.support_cash):
+                pos = self._get_default_selection(date, n_picks-1)
+                pos_sp = n_picks - pos.sum()
 
                 if sp_has_trend and sp_has_positive_sig:
                     pass
@@ -297,12 +308,12 @@ class DualMomentumSelector(object):
 
                 elif sp_has_positive_sig:
                     pos_sp = int(pos_sp*0.5)
-
+                    
             else:
-                pos = self._get_default_selection(date, self.n_picks)
+                pos = self._get_default_selection(date, n_picks)
 
                 if cash_has_positive_sig:# and cash_has_trend:
-                    pos_cash = self.n_picks - pos.sum()
+                    pos_cash = n_picks - pos.sum()
 
             pos = self._selection_add(pos, self.supporter, pos_sp)
             pos = self._selection_add(pos, self.cash_equiv, pos_cash)
@@ -339,7 +350,8 @@ class DualMomentumSelector(object):
         if self.mode=='DualMomentum':
             pos = (score>0) & (ranks<=n_picks)
             if self.market is not None:
-                pos &= (self.has_trend_market[date]) | (sig[self.market]>0)
+                # self.has_trend_market[date]는 Supporter에 몰빵하는 것을 막기위한 장치
+                pos &= (sig[self.market]>0) | (self.has_trend_market[date])
           
         elif self.mode=='RelativeMomentum':
             pos = ranks<=n_picks

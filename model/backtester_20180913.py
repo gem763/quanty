@@ -4,11 +4,14 @@ import itertools
 import time
 from pandas.tseries.offsets import Day
 from IPython.core.debugger import set_trace
+#from numba import jit, float64, types
 from tqdm import tqdm, tqdm_notebook
 
 # Custom modules
+from .plotter import Plotter as pltr
 from .dual_momentum import DualMomentumPort
 from .backtester_base import BacktesterBase
+
 
 
 
@@ -216,7 +219,32 @@ class Backtester(BacktesterBase):
     def _weight_last(self):
         return self._last_of(self.weight, alt=pd.Series())
         
+            
+    def _wrap_up(self, date, trade_amount_, trade_cashflow_, cost_, cash_, hold_):
+        p_close = self.p_close[hold_.index].loc[date]
+        eq_value_ = p_close.mul(hold_)
+        value_ = eq_value_.sum()
+        nav_ = value_ + cash_
+        book_ = self._book2(trade_amount_, value_, trade_cashflow_, cost_, cash_, nav_)
+        return book_, eq_value_
         
+        
+    def _eq_value(self, date, hold_):
+        p_close = self.p_close[hold_.index].loc[date]
+        return p_close.mul(hold_)        
+        
+    
+    def _book2(self, trade_amount_, value_, trade_cashflow_, cost_, cash_, nav_):
+        book_ = [0]*self.book_items_n
+        book_[self.i_trade_amount] = trade_amount_
+        book_[self.i_value] = value_
+        book_[self.i_trade_cashflow] = trade_cashflow_
+        book_[self.i_cost] = cost_
+        book_[self.i_cash] = cash_
+        book_[self.i_nav] = nav_
+        return book_
+        
+    
     def _book(self, trade_amount_, value_, trade_cashflow_, cost_, cash_):
         nav_ = value_ + cash_
         
@@ -259,39 +287,6 @@ class Backtester(BacktesterBase):
     def _df_of(self, which, columns=None):
         return pd.DataFrame.from_dict(dict(which), orient='index', columns=columns).fillna(0).sort_index()
     
-
-    def _rebalance(self, date, weight_):
-        # 이게 있으면, 리밸일마다 기록되는 것들(eq_value, hold 등)이 기록이 안되는 경우가 있다. 
-        #if weight_.sub(self._weight_last()[1], fill_value=0).abs().sum()==0:
-        #    return
-        
-        date_trade = self.dates[self.dates.get_loc(date) + self.trade_delay]
-
-        if (date_trade in self.p_close.index) & (date_trade <= pd.Timestamp(self.end)):
-            self._fill_book(date_trade-Day())
-            #set_trace()
-            trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._trade(date_trade, weight_, self._hold_last()[1], self._cash_last()[1])
-            eq_value_ = self._eq_value(date_trade, hold_)
-            book_ = self._book(trade_amount_, eq_value_.sum(), trade_cashflow_, cost_, cash_)
-            
-            self.eq_value.append((date_trade, eq_value_))
-            self.book.append((date_trade, book_))
-            self.hold.append((date_trade, hold_))
-            #self.weight.append((date_trade, weight_))
-            
-
-    def _positionize(self, date):
-        self._fill_book(date)
-        weight_ = self.port.portfolize(date, book=self.book)
-        self.weight.append((date, weight_))
-        return weight_
-    
-    
-    def _cum(self):
-        cum = self.p_close.reindex(self.dates, method='ffill')
-        cum['DualMomentum'] = self.book['nav']
-        return cum / cum.bfill().iloc[0]
-    
     
     def _run(self):
         for date in tqdm_notebook(self.dates_asof):
@@ -303,4 +298,34 @@ class Backtester(BacktesterBase):
         self.hold = self._df_of(self.hold)
         self.eq_value = self._df_of(self.eq_value)
         self.weight = self._df_of(self.weight)
-        self.cum = self._cum()
+        
+        
+        cum = self.p_close.reindex(self.dates, method='ffill')
+        cum['DualMomentum'] = self.book['nav']
+        self.cum = cum / cum.bfill().iloc[0]
+
+                
+    def _rebalance(self, date, weight_):
+        if weight_.sub(self._weight_last()[1], fill_value=0).abs().sum()==0:
+            return
+        
+        date_trade = self.dates[self.dates.get_loc(date) + self.trade_delay]
+
+        if (date_trade in self.p_close.index) & (date_trade <= pd.Timestamp(self.end)):
+            self._fill_book(date_trade-Day())
+            trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._trade(date_trade, weight_, self._hold_last()[1], self._cash_last()[1])
+            #book_, eq_value_ = self._wrap_up(date_trade, trade_amount_, trade_cashflow_, cost_, cash_, hold_)
+            
+            eq_value_ = self._eq_value(date_trade, hold_)
+            book_ = self._book(trade_amount_, eq_value_.sum(), trade_cashflow_, cost_, cash_)
+            
+            self.eq_value.append((date_trade, eq_value_))
+            self.book.append((date_trade, book_))
+            self.hold.append((date_trade, hold_))
+            self.weight.append((date_trade, weight_))
+            
+
+    def _positionize(self, date):
+        self._fill_book(date)
+        weight_ = self.port.weight.loc[date]
+        return weight_

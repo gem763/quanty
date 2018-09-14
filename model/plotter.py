@@ -196,6 +196,7 @@ class Plotter(object):
         weight_i = weight_.index + 5*Day()
         weight_.index = weight_i
         weight_ = weight_[str(rng[0]):str(rng[1])]
+        #weight_ = weight.loc[str(rng[0]):str(rng[1])]
         weight_.index = weight_.index.strftime('%Y-%m')
         
         weight__ = []

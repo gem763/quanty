@@ -33,7 +33,11 @@ class Port(object):
         #self.wc = []
         #self.downrisk = []
         #self.uprisk = []
-        
+    
+    
+    def portfolize(self, date, book=None):
+        return self.weight.loc[date]
+    
     
     def _get_pos(self, date):
         raise NotImplementedError
@@ -43,6 +47,7 @@ class Port(object):
         pos = self._get_pos(date)
         pos = pos.clip_upper(self.w_max)
 
+        #set_trace()
         weight, pos = self._cash_control(date, pos, wealth, model_rtn)
         weight = self._weight_to_trade(weight, date)
         weight, eta = self._te_control(date, weight, wealth)
@@ -88,7 +93,8 @@ class Port(object):
     
     
     def _is_tradable(self, date, asset):
-        return not np.isnan(self.p_close.loc[date, asset])
+        #return not np.isnan(self.p_close.loc[date, asset])
+        return not np.isnan(self.p_close.loc[:date, asset].iloc[-1])
     
     
     def _te_control(self, date, weight, wealth):
@@ -181,14 +187,19 @@ class Port(object):
         elif self.cm_method==None:
             weight = pos.copy()
                 
-        pos.loc[self.cash_equiv] = 0.0
-        pos.loc[self.cash_equiv] = 1.0 - pos.sum()
+        if self._is_tradable(date, self.cash_equiv):                
+            pos.loc[self.cash_equiv] = 0.0
+            pos.loc[self.cash_equiv] = 1.0 - pos.sum()
 
-        weight.loc[self.cash_equiv] = 0.0
-        weight.loc[self.cash_equiv] = 1.0 - weight.sum()
+            weight.loc[self.cash_equiv] = 0.0
+            weight.loc[self.cash_equiv] = 1.0 - weight.sum()
+            
         
         weight[abs(weight)<0.0001] = 0.0
         return weight, pos
+        
+        
+        
         
     
     def _get_te_exante(self, date, weight, n_period):
