@@ -213,7 +213,9 @@ class Plotter(object):
             cols = [cash_equiv] + cols
         else:
             cols = [cash_equiv, supporter] + cols
-        weight__ = weight__[cols].drop([cash_equiv], axis=1)
+            
+        #weight__ = weight__[cols].drop([cash_equiv], axis=1)
+        weight__ = weight__.reindex(columns=cols).drop([cash_equiv], axis=1)
 
         bar_w = 0.8
         fig_h = len(weight__)/3.0
