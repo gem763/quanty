@@ -256,6 +256,7 @@ class DualMomentumSelector(object):
         def _get_cor(n_back):
             perf_past = p1.pct_change(n_back)#.iloc[-n_sample:]
             return perf_past.corrwith(perf_fut, axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
+            #return perf_past.corrwith(perf_fut, axis=1).ewm(halflife=250).mean()
 
         #out = []
         #for n_back in n_backs:
