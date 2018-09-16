@@ -70,7 +70,7 @@ class Backtester1(BacktesterBase):
     
     def _run(self):
         trade_due = -1
-                
+            
         for date in tqdm_notebook(self.dates):
             if date in self.p_close.index: 
                 trade_due -= 1
@@ -265,9 +265,17 @@ class Backtester(BacktesterBase):
         #if weight_.sub(self._weight_last()[1], fill_value=0).abs().sum()==0:
         #    return
         
-        date_trade = self.dates[self.dates.get_loc(date) + self.trade_delay]
+        i_date_trade = self.dates.get_loc(date) + self.trade_delay
+        
+        if i_date_trade > len(self.dates)-1:
+            return
+        
+        else:
+            date_trade = self.dates[i_date_trade]
+            
+        #date_trade = self.dates[self.dates.get_loc(date) + self.trade_delay]
 
-        if (date_trade in self.p_close.index) & (date_trade <= pd.Timestamp(self.end)):
+        if (date_trade in self.p_close.index):# & (date_trade <= pd.Timestamp(self.end)):
             self._fill_book(date_trade-Day())
             #set_trace()
             trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._trade(date_trade, weight_, self._hold_last()[1], self._cash_last()[1])
@@ -294,6 +302,7 @@ class Backtester(BacktesterBase):
     
     
     def _run(self):
+        #set_trace()
         for date in tqdm_notebook(self.dates_asof):
             weight_ = self._positionize(date)
             self._rebalance(date, weight_)

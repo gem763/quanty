@@ -113,7 +113,11 @@ class BacktesterBase(object):
         if self.end not in dates: 
             dates = dates.append(pd.DatetimeIndex([self.end]))
 
-        dates_asof = pd.date_range(self.start, self.end, freq='M')
+        dates_asof = pd.date_range(self.start, self.end, freq=self.freq)
+        
+        #dates_asof = pd.date_range(self.start, self.end, freq='SM')
+        #dates_asof = dates_asof[dates_asof.day<16]
+        
         dates_asof = dates_all[dates_all.get_indexer(dates_asof, method='ffill')] & dates
         
         # 무조건 첫날(start)은 리밸 기준일

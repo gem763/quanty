@@ -172,8 +172,8 @@ class DualMomentumSelector(object):
         ranks = score.rank(axis=1, ascending=False, na_option='bottom')
         
         if (self.market is not None):
-            #score[(self.sig[self.market]<=0) & (~self.has_trend_market)] = np.nan
-            score[(self.sig[self.market]<=0)] = np.nan
+            score[(self.sig[self.market]<=0) & (~self.has_trend_market)] = np.nan
+            #score[(self.sig[self.market]<=0)] = np.nan
         
         return score, ranks            
         
@@ -206,13 +206,13 @@ class DualMomentumSelector(object):
         
     def _signal_with(self, sig_w, dates):    
         n_sig = sig_w.shape[1]
-        pr = self.p_close.loc[:dates[-1], self.assets_sig].resample('M').ffill()
-        pr.index = self.p_close.index[self.p_close.index.get_indexer(pr.index, method='ffill')]
-        
+        #pr = self.p_close.loc[:dates[-1], self.assets_sig].resample('M').ffill()
+        #pr.index = self.p_close.index[self.p_close.index.get_indexer(pr.index, method='ffill')]
+                
         def __sig_at(date):
-            #set_trace()
             sig_w_ = sig_w.loc[date]
-            pr_ = pr.loc[:date].iloc[-n_sig-1:]
+            #pr_ = pr.loc[:date].iloc[-n_sig-1:]
+            pr_ = self.p_close.loc[:date, self.assets_sig][::-self.sig_w_term][:n_sig+1][::-1]
             rt = (pr_.iloc[-1]/pr_.iloc[:-1]-1).replace(np.inf, np.nan)
             sig_w_ = sig_w_.iloc[-len(rt):]
             return rt.mul(sig_w_.values, axis=0).sum(skipna=False)
@@ -225,12 +225,18 @@ class DualMomentumSelector(object):
         
         if self.sig_w_dynamic:
             mixer = self._sig_dynamic_mix(dates)
-            sig_w_ = np.zeros(mixer.shape[1])
-            sig_w_[-len(sig_w_base):] = sig_w_base
+            
+            if mixer.shape[1]>len(sig_w_base): 
+                sig_w_ = np.zeros(mixer.shape[1])
+                sig_w_[-len(sig_w_base):] = sig_w_base
+                
+            else:
+                sig_w_ = sig_w_base[-mixer.shape[1]:]
+                
             return mixer.add(sig_w_)
         
         else:
-            return pd.DataFrame([sig_w_base]*len(dates), columns=range(21*len(sig_w_base), 0, -21), index=dates)
+            return pd.DataFrame([sig_w_base]*len(dates), columns=range(self.sig_w_term*len(sig_w_base), 0, -self.sig_w_term), index=dates)
     
               
     def _signal(self, dates):
@@ -240,7 +246,6 @@ class DualMomentumSelector(object):
     
     
     def _sig_dynamic_mix_by_n_fwd(self, dates, pr, n_backs, n_fwd):
-        n_sample = 60
         n_delay = 0
 
         pr_ = pr#.iloc[-n_fwd-n_delay-n_sample-n_backs[0]:]
@@ -250,7 +255,7 @@ class DualMomentumSelector(object):
         
         def _get_cor(n_back):
             perf_past = p1.pct_change(n_back)#.iloc[-n_sample:]
-            return perf_past.corrwith(perf_fut, axis=1).rolling(n_sample, min_periods=2).mean()
+            return perf_past.corrwith(perf_fut, axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
 
         #out = []
         #for n_back in n_backs:
@@ -261,22 +266,21 @@ class DualMomentumSelector(object):
         
         #return pd.Series([_get_cor(n_back) for n_back in n_backs], index=n_backs).fillna(0)
         mixer = pd.DataFrame({n_back:_get_cor(n_back) for n_back in n_backs})[n_backs]#.fillna(0)
-        return mixer.reindex(index=dates, method='ffill').fillna(0)
+        mixer = mixer.reindex(index=dates, method='ffill').fillna(0)
+        mixer[(mixer<=self.sig_dyn_thres) & (mixer>=-self.sig_dyn_thres)] = 0
+        return mixer
         
 
 
     def _sig_dynamic_mix(self, dates):
-        n_backs = list(range(21*self.sig_dyn_m_backs, 0, -21))
+        n_backs = list(range(self.sig_w_term*self.sig_dyn_m_backs, 0, -self.sig_w_term))
         pr = self.p_close.loc[:dates[-1], self.assets_score]
         out = pd.DataFrame()
         
-        #t = time.time()
         for n_fwd in self.sig_dyn_fwd:
             out = out.add(self._sig_dynamic_mix_by_n_fwd(dates, pr, n_backs, n_fwd)/n_fwd, fill_value=0)
-        #rint(time.time()-st)
 
         out /= sum(1/np.array(self.sig_dyn_fwd))
-        out[(out<=0.1) & (out>=-0.1)] = 0
         return out        
         
         
