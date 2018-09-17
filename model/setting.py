@@ -76,29 +76,153 @@ assets_us_factor = {
     'Value', 
     'Growth', 
     'Momentum', 
-    'Momentum_EM', 
+    #'Momentum_EM', 
     'DvdApprec', 
     'HighDvd', 
     'HighBeta', 
     'LowBeta', 
     'LowVol', 
     'HighFCF', 
-    'Defensive', 
-    'EW', 
-    '130/30', 
-    'Gender', 
-    'CoveredCall', 
-    'HedgefundHold', 
-    'Moat', 
-    'LongShort', 
-    'ManagedFut', 
-    'M&A', 
-    'ESG', 
-    'IPO', 
-    'Insider', 
-    'Insider2', 
+    #'Defensive', 
+    #'EW', 
+    #'130/30', 
+    #'Gender', 
+    #'CoveredCall', 
+    #'HedgefundHold', 
+    #'Moat', 
+    #'LongShort', 
+    #'ManagedFut', 
+    #'M&A', 
+    #'ESG', 
+    #'IPO', 
+    #'Insider', 
+    #'Insider2', 
     'SmallCap', 
-    'Xrate_Lowvol', 
+    #'Xrate_Lowvol',       
+}
+
+
+assets_global_sector = {
+    #'Material_Global', 
+    #'ConsumerDiscretionary_Global', 
+    #'ConsumerStaples_Global', 
+    #'Energy_Global', 
+    #'Financial_Global', 
+    #'Healthcare_Global', 
+    #'Industrial_Global', 
+    #'REIT_Global', 
+    #'Tech_Global',
+    'Telcom_Global', 
+    #'Utility_Global', 
+
+    'Automotive', 
+    'ConsumerService', 
+    'Gaming', 
+    'Media', 
+    'OnlineRetail', 
+    
+    # Consumer staples
+    'ConsumerGoods', 
+    'FoodBeverage', 
+    
+    # Energy
+    'MLP', 
+    'NaturalGas', 
+    'Exploration', 
+    'OilService', 
+    'Solar', 
+    'Wind', 
+    
+    # Financial
+    'Bank', 
+    'Broker', 
+    'BDC', 
+    'CapitalMarket', 
+    'CommunityBank', 
+    'FinancialService', 
+    'Insurance', 
+    'PE', 
+    'RegionalBank', 
+    
+    # Healthcare
+    'Bio', 
+    'HealthcareService', 
+    'MedicalDevice', 
+    'Pharma', 
+    
+    # Industrial
+    'Aerospace', 
+    'Airlines', 
+    'Transportation', 
+    'Water', 
+    
+    # Material
+    'Agribiz', 
+    'GoldMiner', 
+    'SilverMiner', 
+    'Homebuilder', 
+    'Lithium', 
+    'MetalMining', 
+    'NaturalResource', 
+    'Steel', 
+    'Timber', 
+    'Uranium', 
+    
+    # Tech
+    'Cloud', 
+    'Internet', 
+    'Cybersecurity', 
+    'Networking', 
+    'Semiconductor', 
+    'SNS', 
+    'Software', 
+    
+    # Telcom
+    
+    # Utility
+    'Infra', 
+    
+    # REIT
+    'REIT_US', 
+    'REIT_US_Mort',     
+}
+
+
+assets_kr_us_global_sector = {
+    #'IT_kr', 
+    #'Financial_kr',
+    #'Construction_kr', 
+    #'Industrial_kr', 
+    #'Heavy_kr', 
+    #'Material_kr', 
+    #'Healthcare_kr', 
+    #'Energy_kr', 
+    #'ConsumerDiscretionary_kr', 
+    #'ConsumerStaples_kr', 
+
+    #'Material', 
+    #'ConsumerDiscretionary', 
+    #'ConsumerStaples', 
+    #'Energy', 
+    #'Financial', 
+    #'Healthcare', 
+    #'Industrial', 
+    #'REIT', 
+    #'Tech',
+    #'Telcom', 
+    #'Utility',     
+
+    'Material_Global', 
+    'ConsumerDiscretionary_Global', 
+    'ConsumerStaples_Global', 
+    'Energy_Global', 
+    'Financial_Global', 
+    'Healthcare_Global', 
+    'Industrial_Global', 
+    'REIT_Global', 
+    'Tech_Global',
+    'Telcom_Global', 
+    'Utility_Global', 
 }
 
 
@@ -109,7 +233,7 @@ assets_us_sector = {
     'Energy', 
     'Financial', 
     'Healthcare', 
-    'Industry', 
+    'Industrial', 
     'REIT', 
     'Tech',
     'Telcom', 
@@ -189,6 +313,8 @@ assets_global_eq = {
 
 
 mapper = {
+    
+    # Korea factors
     'arirang_esg':                       'ESG_kr', 
     'arirang_lowvol':                    'LowVol_kr', 
     'arirang_mtum':                      'Growth_kr', 
@@ -222,20 +348,120 @@ mapper = {
     'tiger_mtum':                        'MomentumGrowth_kr', 
     'tiger_pref':                        'Pref_kr', 
 
+    
+    # Korea sectors
+    'tiger200_it':                       'IT_kr', 
+    'tiger200_financial':                'Financial_kr',
+    'tiger200_construction':             'Construction_kr', 
+    'tiger200_industrial':               'Industrial_kr', 
+    'tiger200_heavy':                    'Heavy_kr', 
+    'tiger200_material':                 'Material_kr', 
+    'tiger200_healthcare':               'Healthcare_kr', 
+    'tiger200_energy':                   'Energy_kr', 
+    'tiger200_consumer_disc':            'ConsumerDiscretionary_kr', 
+    'tiger200_consumer_stp':             'ConsumerStaples_kr', 
+    
 
+    # US sectors
     'xlb_spdr_material':                 'Material', 
     'xly_spdr_consumer_disc':            'ConsumerDiscretionary', 
     'xlp_spdr_consumer_stp':             'ConsumerStaples', 
     'xle_spdr_energy':                   'Energy', 
     'xlf_spdr_financial':                'Financial', 
     'xlv_spdr_healthcare':               'Healthcare', 
-    'xli_spdr_industry':                 'Industry', 
+    'xli_spdr_industrial':               'Industrial', 
     'iyr_ishares_reit':                  'REIT', 
     'xlk_spdr_tech':                     'Tech',
     'iyz_ishares_telcom':                'Telcom', 
     'xlu_spdr_util':                     'Utility', 
 
+    # Global sectors
+    'rxi_ishares_consumer_disc_global':  'ConsumerDiscretionary_Global', 
+    'kxi_ishares_consumer_stp_global':   'ConsumerStaples_Global', 
+    'ixc_ishares_energy_global':         'Energy_Global', 
+    'ixg_ishares_financial_global':      'Financial_Global', 
+    'ixj_ishares_healthcare_global':     'Healthcare_Global', 
+    'exi_ishares_industrial_global':     'Industrial_Global', 
+    'mxi_ishares_material_global':       'Material_Global', 
+    'ixn_ishares_tech_global':           'Tech_Global', 
+    'ixp_ishares_telcom_global':         'Telcom_Global', 
+    'jxi_ishares_util_global':           'Utility_Global', 
+    'rwx_spdr_global_reit':              'REIT_Global',     
+    
+    # Consumer discretionary
+    'carz_firstrust_automotive':         'Automotive', 
+    'iyc_ishares_consumer_service':      'ConsumerService', 
+    'bjk_vaneck_gaming':                 'Gaming', 
+    'pbs_invesco_media':                 'Media', 
+    'ibuy_amplify_online_retail':        'OnlineRetail', 
+    
+    # Consumer staples
+    'iyk_ishares_consumer_goods':        'ConsumerGoods', 
+    'pbj_invesco_food_beverage':         'FoodBeverage', 
+    
+    # Energy
+    'amlp_alerian_mlp':                  'MLP', 
+    'fcg_firstrust_natural_gas':         'NaturalGas', 
+    'xop_spdr_exploration':              'Exploration', 
+    'oih_vaneck_oil_service':            'OilService', 
+    'tan_invesco_solar':                 'Solar', 
+    'fan_firstrust_wind':                'Wind', 
+    
+    # Financial
+    'kbe_spdr_bank':                     'Bank', 
+    'iai_ishares_broker':                'Broker', 
+    'bizd_vaneck_bdc':                   'BDC', 
+    'kce_spdr_capital_market':           'CapitalMarket', 
+    'qaba_firstrust_community_bank':     'CommunityBank', 
+    'iyg_ishares_financial_service':     'FinancialService', 
+    'kie_spdr_insurance':                'Insurance', 
+    'psp_invesco_pe':                    'PE', 
+    'kre_spdr_regional_bank':            'RegionalBank', 
+    
+    # Healthcare
+    'ibb_ishares_bio':                   'Bio', 
+    'ihf_ishares_healthcare_service':    'HealthcareService', 
+    'ihi_ishares_medical_device':        'MedicalDevice', 
+    'pjp_invesco_pharma':                'Pharma', 
+    
+    # Industrial
+    'ita_ishares_aerospace':             'Aerospace', 
+    'jets_usglobal_airlines':            'Airlines', 
+    'iyt_ishares_transportation':        'Transportation', 
+    'cgw_invesco_water':                 'Water', 
+    
+    # Material
+    'moo_vaneck_agribiz':                'Agribiz', 
+    'gdx_vaneck_gold_miner':             'GoldMiner', 
+    'sil_globalx_silver_miner':          'SilverMiner', 
+    'itb_ishares_homebuilder':           'Homebuilder', 
+    'lit_globalx_lithium':               'Lithium', 
+    'pick_ishares_metal_mining':         'MetalMining', 
+    'gunr_flexshares_natural_resource':  'NaturalResource', 
+    'slx_vaneck_steel':                  'Steel', 
+    'wood_ishares_timber':               'Timber', 
+    'ura_globalx_uranium':               'Uranium', 
+    
+    # Tech
+    'skyy_firstrust_cloud':              'Cloud', 
+    'fdn_firstrust_internet':            'Internet', 
+    'cibr_firstrust_cybersecurity':      'Cybersecurity', 
+    'pxq_invesco_networking':            'Networking', 
+    'soxx_ishares_semiconductor':        'Semiconductor', 
+    'socl_globalx_sns':                  'SNS', 
+    'igv_ishares_software':              'Software', 
+    
+    # Telcom
+    
+    # Utility
+    'igf_ishares_infra':                 'Infra', 
+    
+    # REIT
+    'vnq_vanguard_us_reit':              'REIT_US', 
+    'rem_ishares_us_mortgage_reit':      'REIT_US_Mort', 
 
+    
+    # Global conturies
     'spy_spdr_us':                       'US', 
     'ewc_ishares_canada':                'Canada', 
     'eww_ishares_mexico':                'Mexico', 
@@ -279,6 +505,7 @@ mapper = {
     'ksa_ishares_saudi':                 'Saudi', 
 
 
+    # US factors
     'qual_ishares_qual':                 'Quality', 
     'ive_ishares_value':                 'Value', 
     'ivw_ishares_growth':                'Growth', 
@@ -308,6 +535,7 @@ mapper = {
     'xrlv_pshares_xrate_sen_lowvol':     'Xrate_Lowvol', 
 
 
+    # Currencies
     'uup_pshares_usd_up':                'USD_UP', 
     'fxy_cshares_jpy':                   'JPY', 
     'fxe_cshares_eur':                   'EUR', 
@@ -318,6 +546,7 @@ mapper = {
     'udn_pshares_usd_down':              'USD_DOWN', 
 
 
+    # Commodities
     'dbc_pshares_comdty':                'Comdty', 
     'uso_uns_wti':                       'WTI', 
     'gld_spdr_gold':                     'Gold', 
@@ -329,6 +558,7 @@ mapper = {
     'gltr_etfs_pmetal':                  'PrecMetal', 
 
 
+    # US bonds
     'agg_ishares_us_bd_agg':             'BND_US_AGG', 
     'bil_spdr_us_tbil':                  'BND_US_Tbill', 
     'shy_ishares_us_bd_short':           'BND_US_Short', 
@@ -345,6 +575,7 @@ mapper = {
     'pff_ishares_us_pref':               'BND_US_Pref', 
 
 
+    # Global bonds
     'bwx_spdr_global_sov_loc':           'BND_GlobalSov_loc', 
     'wip_spdr_global_tip_loc':           'BND_GlobalTip_loc', 
     'bndx_vangard_global_sov_loc_h':     'BND_GlobalSov_loch', 
@@ -361,6 +592,7 @@ mapper = {
     '167860_kosef_kr_bd_interm_lev_usd': 'BND_KR_Interm_lev_usd', 
 
 
+    # Regions
     'acwi_ishares_acwi':                 'ACWI', 
     'vti_vanguard_us_total':             'US_Total', 
     'veu_vanguard_global':               'Global', 
@@ -372,8 +604,4 @@ mapper = {
     'fm_ishares_frontier':               'Frontier', 
     'ilf_ishares_latam':                 'Latam', 
 
-
-    'vnq_vanguard_us_reit':              'REIT_US', 
-    'rwx_spdr_global_reit':              'REIT_Global', 
-    'rem_ishares_us_mortgage_reit':      'REIT_US_Mort', 
 }
