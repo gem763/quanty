@@ -1,3 +1,9 @@
+assets_adm = {
+    'US', 
+    'Smallcap_xUS', 
+}
+
+
 assets_region = {
     'ACWI', 
     'US_Total', 
@@ -349,6 +355,8 @@ mapper = {
     'tiger_pref':                        'Pref_kr', 
 
     
+    
+    
     # Korea sectors
     'tiger200_it':                       'IT_kr', 
     'tiger200_financial':                'Financial_kr',
@@ -574,6 +582,10 @@ mapper = {
     'hyd_vaneck_us_hy_muni':             'BND_US_HY_Muni', 
     'pff_ishares_us_pref':               'BND_US_Pref', 
 
+    'shy_ishares_us_bd_short_krw':       'BND_US_Short_krw', 
+    'ief_ishares_us_bd_interm_krw':      'BND_US_Interm_krw', 
+    'tlt_ishares_us_bd_long_krw':        'BND_US_Long_krw', 
+
 
     # Global bonds
     'bwx_spdr_global_sov_loc':           'BND_GlobalSov_loc', 
@@ -595,6 +607,7 @@ mapper = {
     # Regions
     'acwi_ishares_acwi':                 'ACWI', 
     'vti_vanguard_us_total':             'US_Total', 
+    'gwx_spdr_intl_smallcap':            'Smallcap_xUS', 
     'veu_vanguard_global':               'Global', 
     'iev_ishares_europe':                'EU', 
     'efa_ishares_developed':             'Developed', 
