@@ -159,6 +159,24 @@ class DualMomentumSelector(object):
 
         return list(assets_score), list(assets_sig)
         
+
+    def _score2(self):
+        #score = self.sig[self.assets_score].copy() 
+        #이렇게하면 assets_score에 supporter가 없는 경우, (즉 supporter가 assets_sig 에만 있는 경우)
+        #supporter의 랭크가 ranks에서 빠져서, supporter가 weights에서 제외되므로, 
+        #반드시 assets_score에 supporter를 추가해야한다. 
+        
+        score = self.sig.copy()
+        score[list(set(score.columns)-set(self.assets_score))] = np.nan
+        score[~self.has_trend] = np.nan
+        ranks = score.rank(axis=1, ascending=False, na_option='bottom')
+        
+        if (self.market is not None):
+            score[(self.sig[self.market]<=0) & (~self.has_trend_market)] = np.nan
+            #score[(self.sig[self.market]<=0)] = np.nan
+        
+        return score, ranks            
+        
         
     def _score(self):    
         #score = self.sig[self.assets_score].copy() 
@@ -344,6 +362,50 @@ class DualMomentumSelector(object):
             return pos
         
         return pd.DataFrame([__selection(date) for date in self.sig.index], index=self.sig.index)
+
+    
+    def _selection2(self):
+        def __selection(date):
+            pos_sp = pos_cash = 0
+
+            n_picks = self._n_picks()
+            sp_has_trend = self.has_trend_sp.loc[date]
+            sp_has_positive_sig = self.sig.loc[date, self.supporter]>=0
+            cash_has_positive_sig = self.sig.loc[date, self.cash_equiv]>=0
+            
+            if self.support_cash and (sp_has_trend or sp_has_positive_sig):
+                pos = self._get_default_selection(date, n_picks)#-1)
+                pos_sp = n_picks - pos.sum()
+
+                if sp_has_trend and sp_has_positive_sig:
+                    pass
+
+                elif sp_has_trend:
+                    pass
+                    #pos_sp = int(pos_sp*0.5)
+
+                elif sp_has_positive_sig:
+                    pass
+                    #pos_sp = int(pos_sp*0.5)
+
+            elif not self.support_cash:
+                pos = self._get_default_selection(date, n_picks)
+                pos_sp = n_picks - pos.sum()
+                    
+            else:
+                pos = self._get_default_selection(date, n_picks)
+
+                if cash_has_positive_sig:# and cash_has_trend:
+                    pos_cash = n_picks - pos.sum()
+
+            pos = self._selection_add(pos, self.supporter, pos_sp)
+            pos = self._selection_add(pos, self.cash_equiv, pos_cash)
+
+            return pos
+        
+        out = pd.DataFrame([__selection(date) for date in self.sig.index], index=self.sig.index)
+        
+        return out    
     
     
     
@@ -385,3 +447,192 @@ class DualMomentumSelector(object):
         return pos.astype(int)        
         
         
+        
+        
+        
+class DualMomentumSelector_old(object):
+    def __init__(self, date, **params):
+        self.__dict__.update(**params)
+        self.assets_score, self.assets_sig = self._assets()
+        self.sig, self.sig_w = self._signal(date)
+        self.has_trend, self.has_trend_sp, self.has_trend_market = self._trend(date)
+        self.score, self.ranks = self._score()
+        self.selection = self._selection()
+        
+        
+
+    def _assets(self):
+        assets_score = self.assets
+        assets_sig = assets_score | {self.cash_equiv, self.supporter}
+        if self.market is not None: assets_sig.update({self.market})
+
+        return list(assets_score), list(assets_sig)
+
+
+    def _score(self):
+        #score = self.sig[self.assets_score].copy() 
+        #이렇게하면 assets_score에 supporter가 없는 경우, (즉 supporter가 assets_sig 에만 있는 경우)
+        #supporter의 랭크가 ranks에서 빠져서, supporter가 weights에서 제외되므로, 
+        #반드시 assets_score에 supporter를 추가해야한다. 
+        
+        score = self.sig.copy()
+        score[list(set(score.index)-set(self.assets_score))] = np.nan
+        score[~self.has_trend] = np.nan
+        ranks = score.rank(ascending=False, na_option='bottom')
+        return score, ranks    
+    
+    
+    def _signal_with(self, sig_w, date):
+        n_sig = len(sig_w)
+        pr = self.p_close.loc[:date, self.assets_sig].iloc[-21*(n_sig+3):].resample('M').ffill().iloc[-n_sig-1:]
+        rt = (pr.iloc[-1]/pr.iloc[:-1]-1).replace(np.inf, np.nan)
+        sig_w_ = sig_w.iloc[-len(rt):]
+        return rt.mul(sig_w_.values, axis=0).sum(skipna=False)
+        
+    
+    def _sig_w(self, date):
+        sig_w_base = self.sig_w_base
+        
+        if self.sig_w_dynamic:
+            mixer = self._sig_dynamic_mix(date)
+            sig_w_ = np.zeros(len(mixer))
+            sig_w_[-len(sig_w_base):] = sig_w_base
+            return mixer.add(sig_w_)
+        
+        else:
+            return pd.Series(sig_w_base, index=range(21*len(sig_w_base), 0, -21))
+    
+              
+    def _signal(self, date):
+        sig_w = self._sig_w(date)
+        sig = self._signal_with(sig_w, date)
+        return sig, sig_w
+    
+    
+    def _sig_dynamic_mix_by_n_fwd(self, pr, n_backs, n_fwd):
+        n_sample = 60
+        n_delay = 0
+
+        pr_ = pr.iloc[-n_fwd-n_delay-n_sample-n_backs[0]:]
+        p1 = pr_.shift(n_fwd+n_delay)
+        p2 = pr_
+        perf_fut = p2.pct_change(n_fwd).iloc[-n_sample:]
+        
+        #def _get_cor(n_back):
+        #    perf_past = p1.pct_change(n_back).iloc[-n_sample:]
+        #    return perf_past.corrwith(perf_fut, axis=1).mean()
+
+        out = []
+        for n_back in n_backs:
+            perf_past = p1.pct_change(n_back).iloc[-n_sample:]
+            out.append(perf_past.corrwith(perf_fut, axis=1).mean())
+        
+        return pd.Series(out, index=n_backs).fillna(0)
+        
+        #return pd.Series([_get_cor(n_back) for n_back in n_backs], index=n_backs).fillna(0)
+        #return pd.Series({n_back:_get_cor(n_back) for n_back in n_backs})[n_backs].fillna(0)
+
+
+    def _sig_dynamic_mix(self, date):
+        n_backs = list(range(21*self.sig_dyn_m_backs, 0, -21))
+        pr = self.p_close.loc[:date, self.assets_score]
+        out = pd.Series()
+        
+        #t = time.time()
+        for n_fwd in self.sig_dyn_fwd:
+            out = out.add(self._sig_dynamic_mix_by_n_fwd(pr, n_backs, n_fwd)/n_fwd, fill_value=0)
+        #rint(time.time()-st)
+
+        out /= sum(1/np.array(self.sig_dyn_fwd))
+        out[(out<=0.1) & (out>=-0.1)] = 0
+        return out
+    
+ 
+    def _trend(self, date):
+        has_trend = self._has_trend(date, self.follow_trend)
+        has_trend_sp = self._has_trend(date, self.follow_trend_supporter, asset=self.supporter)
+        
+        has_trend_market = None
+        if self.market is not None:
+            has_trend_market = self._has_trend(date, self.follow_trend_market, asset=self.market)
+            
+        return has_trend, has_trend_sp, has_trend_market
+    
+    
+    def _has_trend(self, date, terms, asset=None):
+        if asset is None:
+            pr = self.p_close.loc[:date, self.assets_sig]
+            
+        else:
+            pr = self.p_close.loc[:date, asset]
+
+        ma_short = pr.iloc[-terms[0]:].mean(skipna=False)
+        ma_long = pr.iloc[-terms[1]:].mean(skipna=False)
+        return ma_short>ma_long
+
+
+    def _selection(self):
+        pos_sp = pos_cash = 0
+
+        sp_has_trend = self.has_trend_sp
+        sp_has_positive_sig = self.sig[self.supporter]>=0
+        cash_has_positive_sig = self.sig[self.cash_equiv]>=0
+        
+        if self.support_cash and (sp_has_trend or sp_has_positive_sig):
+            pos = self._get_default_selection(self.n_picks-1)
+            pos_sp = self.n_picks - pos.sum()
+
+            if sp_has_trend and sp_has_positive_sig:
+                pass
+
+            elif sp_has_trend:
+                pos_sp = int(pos_sp*0.5)
+
+            elif sp_has_positive_sig:
+                pos_sp = int(pos_sp*0.5)
+
+        else:
+            pos = self._get_default_selection(self.n_picks)
+
+            if cash_has_positive_sig:# and cash_has_trend:
+                pos_cash = self.n_picks - pos.sum()
+
+        pos = self._selection_add(pos, self.supporter, pos_sp)
+        pos = self._selection_add(pos, self.cash_equiv, pos_cash)
+        
+        return pos
+    
+    
+    def _selection_add(self, pos, asset, value):
+        try:
+            pos.loc[asset] += value
+
+        except:
+            pos.loc[asset] = value
+            
+        return pos
+    
+    
+#    def _get_oversold(self, date):
+#        p_ = self.p_close.loc[:date].iloc[-20:]
+#        z = -((p_-p_.mean())/p_.std()).iloc[-1]
+#        return z.rank(ascending=False)<=3
+            
+
+    def _get_default_selection(self, n_picks):
+        
+        if self.mode=='DualMomentum':
+            pos = (self.score>0) & (self.ranks<=n_picks)
+            if self.market is not None:
+                pos &= (self.has_trend_market) | (self.sig[self.market]>0)
+          
+        elif self.mode=='RelativeMomentum':
+            pos = self.ranks<=n_picks
+          
+        elif self.mode=='AbsoluteMomentum':
+            pos = (self.score>0)
+            if self.market is not None:
+                pos &= (self.sig[self.market]>0)
+                        
+        return pos.astype(int)
+    

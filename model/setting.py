@@ -4,6 +4,67 @@ assets_adm = {
 }
 
 
+assets_multiasset = {
+    #'ACWI', 
+    'US_Total', 
+    'Global', 
+    'EU', 
+    'Developed', 
+    'EM', 
+    'Asia_xJp', 
+    'BRIC', 
+    'Frontier', 
+    'Latam', 
+    'Smallcap_xUS', 
+    
+    #'Comdty', 
+    'WTI', 
+    #'Gold', 
+    #'Silver', 
+    'Agriculture', 
+    'NatGas', 
+    'Engy', 
+    'BaseMetal', 
+    'PrecMetal', 
+
+    'BND_US_Interm',
+    'BND_US_Long', 
+    'BND_US_TIP',
+    'BND_US_IG',
+    'BND_US_HY',
+    'BND_US_MBS',
+    'BND_US_Muni',
+    'BND_US_Bankloan',
+    'BND_US_CB',
+    'BND_US_HY_Muni',
+    'BND_US_Pref',
+
+    'BND_GlobalSov_loc',
+    'BND_GlobalTip_loc',
+    'BND_GlobalSov_loch',
+    'BND_DevSov_loc',
+    'BND_DevFloat_usd',
+    'BND_DevIG_loc',
+    'BND_DevHY_loc',
+    'BND_EmSov_usd',
+    'BND_EmSov_loc',
+    'BND_EmHy_usd',
+
+    'USD_UP', 
+    'JPY', 
+    'EUR', 
+    'AUD', 
+    'CAD', 
+    'CHF', 
+    'GBP', 
+    #'USD_DOWN', 
+
+    'REIT_Global', 
+    'REIT_US', 
+    'REIT_US_Mort',     
+    
+}
+
 assets_region = {
     'ACWI', 
     'US_Total', 
@@ -15,6 +76,7 @@ assets_region = {
     'BRIC', 
     'Frontier', 
     'Latam', 
+    'Smallcap_xUS', 
 }
 
 assets_fx = {
