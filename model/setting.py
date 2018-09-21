@@ -1,3 +1,73 @@
+import numpy as np
+
+def base_params(db):
+    
+    return {
+        'start': '2002-12-31', 
+        'end': '2018-08-31', #'2018-03-31', 
+        'db': db, 
+        'assets': None, 
+        'price': {'price_src':'reprice', 'trade_tol':'at_close'}, 
+        'trade': {
+            'trade_assets': [
+                #('BND_US_Long', {'BND_US_Interm':0.3, 'BND_US_Short':0.1}), 
+                #('BND_US_Long', {'BND_US_Long':1.0}), 
+            ], 
+            'trade_prev_nav_based': True, 
+            'trade_delay': 1, 
+            'freq': 'M', 
+            'cash': 100000000, 
+            'expense': 0.001, 
+            'gr_exposure': 0.99, }, 
+        'selecting': {
+            'mode': 'DualMomentum', #'DualMomentum', 'AbsoluteMomentum', 'RelativeMomentum'
+            'sig_mixer': {
+                'sig_w_base': [1,0,0,0,0,0,1,0,0,0,0,0], #[1,0,0,0,0,0,1,0,0,0.25*4,0.25*6,0.25*12]
+                'sig_w_term': 21, 
+                'sig_w_dynamic': False, 
+                'sig_dyn_fwd': 21*np.array([1]), 
+                'sig_dyn_m_backs': 24, 
+                'sig_dyn_n_sample': 63, 
+                'sig_dyn_thres': 0.0, }, 
+            'market': None, #'ACWI', # None도 가능
+            'supporter': None, #'BND_US_Long', 
+            'cash_equiv': None, #'BND_US_AGG', 
+            'n_picks': None, }, 
+        'weighting': {
+            'w_type': 'inv_ranky2', 
+            'eaa_wr': 1.0, 
+            'eaa_wc': 1.0, 
+            'eaa_wr_bnd': 0.5, 
+            'eaa_short_period': 20, 
+            'iv_period': 60, 
+            'w_max': 1.0, }, 
+        'stats_opts': {
+            'beta_to': 'ACWI', 
+            'stats_n_roll': 250, }, 
+        'reinforce': {
+            'follow_trend': None, #(20,60), 
+            'follow_trend_market': None, #(20, 60),
+            'follow_trend_supporter': None, #(20, 60), 
+            'strong_condition': False, }, 
+        'te_control': {
+            'bm': None, #'ACWI', 
+            'te_target': None, 
+            'te_k': 0.3, 
+            'te_short_period': 20, 
+            'te_short_up_down_ratio_cap': True, 
+            'te_short_target_cap': True, 
+            'te_smoother': False, 
+            'safety_buffer': 0.8, }, 
+        'cash_manager': {
+            'cm_method': None, #'cp', 
+            'up_down_ratio_period': 20, 
+            'kelly_type': 'semivariance', 
+            'kelly_vol_period': 250, 
+            'kelly_self_eval': True, }
+    }
+
+
+
 assets_adm = {
     'US', 
     'Smallcap_xUS', 
@@ -18,7 +88,7 @@ assets_multiasset = {
     'Smallcap_xUS', 
     
     #'Comdty', 
-    'WTI', 
+    #'WTI', 
     #'Gold', 
     #'Silver', 
     'Agriculture', 
@@ -51,17 +121,17 @@ assets_multiasset = {
     'BND_EmHy_usd',
 
     'USD_UP', 
-    'JPY', 
-    'EUR', 
-    'AUD', 
-    'CAD', 
-    'CHF', 
-    'GBP', 
-    #'USD_DOWN', 
+    #'JPY', 
+    #'EUR', 
+    #'AUD', 
+    #'CAD', 
+    #'CHF', 
+    #'GBP', 
+    'USD_DOWN', 
 
     'REIT_Global', 
     'REIT_US', 
-    'REIT_US_Mort',     
+    #'REIT_US_Mort',     
     
 }
 
@@ -105,7 +175,7 @@ assets_comdty = {
 
 
 assets_kr_factor = {
-    #'ESG_kr', 
+    'ESG_kr', 
     'LowVol_kr', 
     'Growth_kr', 
     'Quality_kr', 
@@ -133,13 +203,44 @@ assets_kr_factor = {
     #'DvdSust_kr', 
     #'KSP', 
     #'HighDvd_kr_2', 
-    #'K200L', 
+    'K200L', 
     #'LowVol_kr_3', 
     'MomentumGrowth_kr', 
     #'Pref_kr', 
 }
 
 assets_us_factor = {
+    'Quality', 
+    'Value', 
+    'Growth', 
+    'Momentum', 
+    'Momentum_EM', 
+    'DvdApprec', 
+    'HighDvd', 
+    'HighBeta', 
+    'LowBeta', 
+    'LowVol', 
+    'HighFCF', 
+    'Defensive', 
+    'EW', 
+    '130/30', 
+    'Gender', 
+    'CoveredCall', 
+    'HedgefundHold', 
+    'Moat', 
+    'LongShort', 
+    'ManagedFut', 
+    'M&A', 
+    'ESG', 
+    'IPO', 
+    'Insider', 
+    #'Insider2', 
+    'SmallCap', 
+    'Xrate_Lowvol',       
+}
+
+
+assets_us_factor2 = {
     'Quality', 
     'Value', 
     'Growth', 
@@ -294,6 +395,20 @@ assets_kr_us_global_sector = {
 }
 
 
+assets_kr_sector = {
+    'IT_kr', 
+    'Financial_kr',
+    'Construction_kr', 
+    'Industrial_kr', 
+    'Heavy_kr', 
+    'Material_kr', 
+    'Healthcare_kr', 
+    'Energy_kr', 
+    'ConsumerDiscretionary_kr', 
+    'ConsumerStaples_kr', 
+}
+
+
 assets_us_sector = {
     'Material', 
     'ConsumerDiscretionary', 
@@ -333,6 +448,7 @@ assets_fi = {
     'BND_EmSov_usd',
     'BND_EmSov_loc',
     'BND_EmHy_usd',
+    #'BND_ChinaCredit_loc', 
 }
 
 assets_global_eq = {
