@@ -182,7 +182,7 @@ assets_kr_factor = {
     'Value_kr', 
     #'K200_2', 
     #'EW_kr_2', 
-    #'Midcap_kr', 
+    #'Midcap_kr', ##
     #'DvdGrowth_kr_2', 
     'HighDvd_kr', 
     #'KSP_2', 
@@ -196,17 +196,17 @@ assets_kr_factor = {
     #'KTB10Y', 
     #'KTB10YL', 
     'K200', 
-    #'EW_kr', 
+    #'EW_kr', ##
     'HighBeta_kr', 
     'Contrarian_kr', 
     'DvdGrowth_kr', 
-    #'DvdSust_kr', 
-    #'KSP', 
+    #'DvdSust_kr', ##
+    #'KSP', ##
     #'HighDvd_kr_2', 
     'K200L', 
     #'LowVol_kr_3', 
     'MomentumGrowth_kr', 
-    #'Pref_kr', 
+    #'Pref_kr', ##
 }
 
 assets_us_factor = {

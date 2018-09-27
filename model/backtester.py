@@ -9,9 +9,9 @@ from tqdm import tqdm, tqdm_notebook
 # Custom modules
 from .dual_momentum import DualMomentumPort
 from .backtester_base import BacktesterBase
-    
-    
-    
+
+
+
 class Backtester(BacktesterBase):
     
     def __init__(self, params, **opt):
@@ -144,7 +144,6 @@ class Backtester(BacktesterBase):
     
     
     def _run(self):
-        #set_trace()
         for date in tqdm_notebook(self.dates_asof):
             weight_ = self._positionize(date)
             self._rebalance(date, weight_)
