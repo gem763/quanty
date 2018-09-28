@@ -17,7 +17,6 @@ class Backtester(BacktesterBase):
     def __init__(self, params, **opt):
 
         # 매일 기록
-        self.p_max = []
         self.book = []
         self.book_items = ['trade_amount', 'value', 'trade_cashflow', 'cost', 'cash', 'nav']
         self.i_trade_amount = self.book_items.index('trade_amount')
@@ -44,10 +43,6 @@ class Backtester(BacktesterBase):
             return (None, alt)
         
           
-    def _p_max_last(self):
-        return self._last_of(self.p_max, alt=pd.Series())
-            
-            
     def _hold_last(self):
         return self._last_of(self.hold, alt=pd.Series())
         
@@ -75,21 +70,20 @@ class Backtester(BacktesterBase):
         book_[self.i_cash] = cash_
         book_[self.i_nav] = nav_
         return book_    
-
-
+    
+    
     def _fill_book(self, date):
-
+        
         if len(self.book)!=0:
             date_last = self.book[-1][0]
             dates_update = self.dates[(date_last<self.dates) & (self.dates<=date)]
-
+            
             if len(dates_update)!=0:
                 hold_last = self._hold_last()[1]
                 cash_last = self._cash_last()[1]
-
+            
                 p_close = self.p_close[hold_last.index].reindex(dates_update, method='ffill')
                 eq_value_update = p_close.mul(hold_last, axis=1)
-                #if date>pd.Timestamp('2005-12-31'): set_trace()
                 value_update = eq_value_update.sum(axis=1)
 
                 book_update = np.zeros((len(dates_update), self.book_items_n))
@@ -98,15 +92,15 @@ class Backtester(BacktesterBase):
                 book_update[:,self.i_nav] = value_update + cash_last
 
                 self.book += zip(dates_update, book_update.tolist())
-
+                
         else:
             self.book.append((date, self._book(0, 0, 0, 0, self.cash)))
-
-
-
+    
+    
+    
     def _df_of(self, which, columns=None):
         return pd.DataFrame.from_dict(dict(which), orient='index', columns=columns).fillna(0).sort_index()
-
+    
 
     def _rebalance(self, date, weight_):
         # 이게 있으면, 리밸일마다 기록되는 것들(eq_value, hold 등)이 기록이 안되는 경우가 있다. 
@@ -120,18 +114,21 @@ class Backtester(BacktesterBase):
         
         else:
             date_trade = self.dates[i_date_trade]
+            
+        #date_trade = self.dates[self.dates.get_loc(date) + self.trade_delay]
 
-
-        if date_trade in self.p_close.index:
+        if (date_trade in self.p_close.index):# & (date_trade <= pd.Timestamp(self.end)):
             self._fill_book(date_trade-Day())
-            trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._trade(date_trade, weight_, self._hold_last()[1], self._cash_last()[1])
-            eq_value_, p_close = self._eq_value(date_trade, hold_)
-            book_ = self._book(trade_amount_, eq_value_.sum(), trade_cashflow_, cost_, cash_)
             #set_trace()
+            trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._trade(date_trade, weight_, self._hold_last()[1], self._cash_last()[1])
+            eq_value_ = self._eq_value(date_trade, hold_)
+            book_ = self._book(trade_amount_, eq_value_.sum(), trade_cashflow_, cost_, cash_)
+            
             self.eq_value.append((date_trade, eq_value_))
             self.book.append((date_trade, book_))
             self.hold.append((date_trade, hold_))
-
+            #self.weight.append((date_trade, weight_))
+            
 
     def _positionize(self, date):
         self._fill_book(date)

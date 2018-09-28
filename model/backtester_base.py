@@ -129,7 +129,7 @@ class BacktesterBase(object):
 
     def _eq_value(self, date, hold_):
         p_close = self.p_close[hold_.index].loc[date]
-        return p_close.mul(hold_)        
+        return p_close.mul(hold_), p_close
     
     
     def _trade(self, date, weight_, hold_, cash_):
