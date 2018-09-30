@@ -18,6 +18,8 @@ class Backtester(BacktesterBase):
 
         # 매일 기록
         self.p_max = []
+        self.vol = []
+        
         self.book = []
         self.book_items = ['trade_amount', 'value', 'trade_cashflow', 'cost', 'cash', 'nav']
         self.i_trade_amount = self.book_items.index('trade_amount')
@@ -28,10 +30,12 @@ class Backtester(BacktesterBase):
         self.i_nav = self.book_items.index('nav')
         self.book_items_n = len(self.book_items)
         
-        # 리밸일에만 기록
+        
         self.hold = []
+        #self.eq_value = []
+        
+        # 리밸기준일(date_asof)일에만 기록
         self.weight = []
-        self.eq_value = []
         
         BacktesterBase.__init__(self, params, Port=DualMomentumPort, **opt)
         
@@ -47,6 +51,10 @@ class Backtester(BacktesterBase):
     def _p_max_last(self):
         return self._last_of(self.p_max, alt=pd.Series())
             
+        
+    def _vol_last(self):    
+        return self._last_of(self.vol, alt=pd.Series())
+    
             
     def _hold_last(self):
         return self._last_of(self.hold, alt=pd.Series())
@@ -60,8 +68,8 @@ class Backtester(BacktesterBase):
         return date, book_[self.i_cash] 
         
         
-    def _weight_last(self):
-        return self._last_of(self.weight, alt=pd.Series())
+    #def _weight_last(self):
+    #    return self._last_of(self.weight, alt=pd.Series())
         
         
     def _book(self, trade_amount_, value_, trade_cashflow_, cost_, cash_):
@@ -76,6 +84,18 @@ class Backtester(BacktesterBase):
         book_[self.i_nav] = nav_
         return book_    
 
+    
+    def _losscut_filter(self, p_close):
+        p_max_last = self._p_max_last()[1]
+        vol_last = self._vol_last()[1]
+        
+        p_max_ = p_max_last.to_frame().T.append(p_close).cummax().iloc[1:]
+        self.p_max.append(p_max_)
+        #return p_max_ * (1-self.losscut)
+        
+        #set_trace()
+        return p_max_ * (1-vol_last[p_max_.columns])
+    
 
     def _fill_book(self, date):
 
@@ -87,9 +107,46 @@ class Backtester(BacktesterBase):
                 hold_last = self._hold_last()[1]
                 cash_last = self._cash_last()[1]
 
-                p_close = self.p_close[hold_last.index].reindex(dates_update, method='ffill')
-                eq_value_update = p_close.mul(hold_last, axis=1)
-                #if date>pd.Timestamp('2005-12-31'): set_trace()
+                p_close_ = self.p_close[hold_last.index].reindex(dates_update, method='ffill')
+                p_thres = self._losscut_filter(p_close_)
+                hold_ = (p_thres<p_close_).astype(float).cummin().mul(hold_last, axis=1)
+                
+                #set_trace()
+                share_sell = -hold_last.to_frame().T.append(hold_).diff().iloc[1:]
+                amount_sell = (share_sell * p_thres).sum(axis=1)
+                cash_ = amount_sell.cumsum() + cash_last
+                
+                eq_value_update = p_close_ * hold_
+                value_update = eq_value_update.sum(axis=1)
+
+                book_update = np.zeros((len(dates_update), self.book_items_n))
+                book_update[:,self.i_value] = value_update
+                book_update[:,self.i_cash] = cash_
+                book_update[:,self.i_nav] = value_update + cash_
+
+                self.book += zip(dates_update, book_update.tolist())
+                #set_trace()
+                self.hold += [(date_, hold_.loc[date_]) for date_ in hold_.index]
+                #set_trace()
+
+        else:
+            self.book.append((date, self._book(0, 0, 0, 0, self.cash)))
+            
+    
+    
+    def _fill_book2(self, date):
+
+        if len(self.book)!=0:
+            date_last = self.book[-1][0]
+            dates_update = self.dates[(date_last<self.dates) & (self.dates<=date)]
+
+            if len(dates_update)!=0:
+                hold_last = self._hold_last()[1]
+                cash_last = self._cash_last()[1]
+
+                p_close_ = self.p_close[hold_last.index].reindex(dates_update, method='ffill')
+                eq_value_update = p_close_.mul(hold_last, axis=1)
+                
                 value_update = eq_value_update.sum(axis=1)
 
                 book_update = np.zeros((len(dates_update), self.book_items_n))
@@ -107,6 +164,14 @@ class Backtester(BacktesterBase):
     def _df_of(self, which, columns=None):
         return pd.DataFrame.from_dict(dict(which), orient='index', columns=columns).fillna(0).sort_index()
 
+    
+    def _vol(self, date, weight_):
+        #set_trace()
+        cov = self.p_close[weight_.index].iloc[-250:].pct_change().cov()
+        std = weight_.T.dot(cov.dot(weight_))**0.5
+        x = self.losscut / std
+        return x * pd.Series(np.diag(cov)**0.5, index=weight_.index)
+    
 
     def _rebalance(self, date, weight_):
         # 이게 있으면, 리밸일마다 기록되는 것들(eq_value, hold 등)이 기록이 안되는 경우가 있다. 
@@ -126,11 +191,15 @@ class Backtester(BacktesterBase):
             self._fill_book(date_trade-Day())
             trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._trade(date_trade, weight_, self._hold_last()[1], self._cash_last()[1])
             eq_value_, p_close = self._eq_value(date_trade, hold_)
+            #set_trace()
             book_ = self._book(trade_amount_, eq_value_.sum(), trade_cashflow_, cost_, cash_)
             #set_trace()
-            self.eq_value.append((date_trade, eq_value_))
+            #self.eq_value.append((date_trade, eq_value_))
             self.book.append((date_trade, book_))
             self.hold.append((date_trade, hold_))
+            
+            self.p_max.append((date_trade, p_close))
+            self.vol.append((date_trade, self._vol(date, weight_)))
 
 
     def _positionize(self, date):
@@ -154,6 +223,12 @@ class Backtester(BacktesterBase):
         self._fill_book(self.end)
         self.book = self._df_of(self.book, columns=self.book_items)
         self.hold = self._df_of(self.hold)
-        self.eq_value = self._df_of(self.eq_value)
+        #self.eq_value = self._df_of(self.eq_value)
         self.weight = self._df_of(self.weight)
         self.cum = self._cum()
+
+        
+        
+class Book(object):
+    def __init__(self):
+        pass
