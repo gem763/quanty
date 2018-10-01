@@ -17,13 +17,15 @@ class BacktesterBase(object):
         self.__dict__.update(params_flat)
         
         dates, dates_asof = self._get_dates()
-        p_close, p_buy, p_sell, r = self._prices()
+        p_close, p_buy, p_sell, p_high, p_low, r = self._prices()
         self.__dict__.update({
             'dates': dates, 
             'dates_asof': dates_asof, 
             'p_close': p_close, 
             'p_buy': p_buy, 
             'p_sell': p_sell, 
+            'p_high': p_high, 
+            'p_low': p_low, 
             'r': r, 
         })
         
@@ -98,7 +100,7 @@ class BacktesterBase(object):
             p_buy = p_close_low
             p_sell = p_close_high
             
-        return p_close, p_buy, p_sell, p_close.pct_change()    
+        return p_close, p_buy, p_sell, p_close_high, p_close_low, p_close.pct_change()    
                
 
     # 모든 영업일 출력

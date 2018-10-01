@@ -9,6 +9,7 @@ from tqdm import tqdm, tqdm_notebook
 # Custom modules
 from .dual_momentum import DualMomentumPort
 from .backtester_base import BacktesterBase
+from ..model import evaluator as ev
 
 
 
@@ -90,11 +91,13 @@ class Backtester(BacktesterBase):
         vol_last = self._vol_last()[1]
         
         p_max_ = p_max_last.to_frame().T.append(p_close).cummax().iloc[1:]
-        self.p_max.append(p_max_)
-        #return p_max_ * (1-self.losscut)
+        self.p_max += [(date_, p_max_.loc[date_]) for date_ in p_max_.index]
+        #self.p_max.append(p_max_)
         
+        sigma = vol_last[p_max_.columns]
+        #sigma = self.losscut
         #set_trace()
-        return p_max_ * (1-vol_last[p_max_.columns])
+        return p_max_*(1-sigma), p_max_*(1-2*sigma)
     
 
     def _fill_book(self, date):
@@ -106,15 +109,31 @@ class Backtester(BacktesterBase):
             if len(dates_update)!=0:
                 hold_last = self._hold_last()[1]
                 cash_last = self._cash_last()[1]
-
+               
+                #hold_last = hold_last[hold_last!=0]
                 p_close_ = self.p_close[hold_last.index].reindex(dates_update, method='ffill')
-                p_thres = self._losscut_filter(p_close_)
-                hold_ = (p_thres<p_close_).astype(float).cummin().mul(hold_last, axis=1)
+                #p_low_ = self.p_low[hold_last.index].reindex(dates_update, method='ffill')
                 
+                p_thres1, p_thres2 = self._losscut_filter(p_close_)
+                
+                hold_ = (p_thres1<p_close_).astype(float)
+                hold_[(p_thres2<p_close_) & (p_close_<=p_thres1)] = 0.5
+                #hold_[p_close_<=p_thres1] = 0.5
+                hold_ = hold_.cummin()
+                hold_[hold_==0] = 1.0
                 #set_trace()
-                share_sell = -hold_last.to_frame().T.append(hold_).diff().iloc[1:]
-                amount_sell = (share_sell * p_thres).sum(axis=1)
-                cash_ = amount_sell.cumsum() + cash_last
+                #hold_ = (p_thres1<p_close_).astype(float).cummin()
+                #hold_[hold_==0] = 0.5
+                hold_ = hold_.mul(hold_last, axis=1).shift()
+                hold_.iloc[0] = hold_last
+                
+                #share_sell = -hold_last.to_frame().T.append(hold_).diff().iloc[1:]
+                share_sell = -hold_.diff()
+                share_sell.iloc[0] = 0
+                #amount_sell = (share_sell * p_thres).sum(axis=1)
+                amount_sell = (share_sell * p_close_).sum(axis=1)
+                cost_sell = amount_sell * self.expense
+                cash_ = (amount_sell-cost_sell).cumsum() + cash_last
                 
                 eq_value_update = p_close_ * hold_
                 value_update = eq_value_update.sum(axis=1)
@@ -166,11 +185,23 @@ class Backtester(BacktesterBase):
 
     
     def _vol(self, date, weight_):
-        #set_trace()
-        cov = self.p_close[weight_.index].iloc[-250:].pct_change().cov()
-        std = weight_.T.dot(cov.dot(weight_))**0.5
+        weight__ = weight_[weight_!=0]
+        cov = self.r[weight__.index].iloc[-250:].cov() * 20
+        std = weight__.T.dot(cov.dot(weight__))**0.5
+        
         x = self.losscut / std
-        return x * pd.Series(np.diag(cov)**0.5, index=weight_.index)
+        #set_trace()
+        #x = (self.losscut if self.losscut<std else std) / std
+        return x * pd.Series(np.diag(cov)**0.5, index=weight__.index)
+    
+    
+    def _vol_down(self, date, weight_):
+        #set_trace()
+        rt = self.r[weight_.index].iloc[-250:]
+        downrisk = pd.Series({asset:ev._std_dir_by_r(rt[asset], -1)/100 for asset in weight_.index})
+        std = (weight_*downrisk).sum()
+        x = self.losscut / std
+        return x * downrisk
     
 
     def _rebalance(self, date, weight_):
@@ -189,6 +220,8 @@ class Backtester(BacktesterBase):
 
         if date_trade in self.p_close.index:
             self._fill_book(date_trade-Day())
+            #if date_trade==pd.Timestamp('2003-02-03'):set_trace()
+            
             trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._trade(date_trade, weight_, self._hold_last()[1], self._cash_last()[1])
             eq_value_, p_close = self._eq_value(date_trade, hold_)
             #set_trace()
@@ -205,6 +238,7 @@ class Backtester(BacktesterBase):
     def _positionize(self, date):
         self._fill_book(date)
         weight_ = self.port.portfolize(date, book=self.book)
+        #weight_ = weight_[weight_!=0]
         self.weight.append((date, weight_))
         return weight_
     
@@ -225,6 +259,8 @@ class Backtester(BacktesterBase):
         self.hold = self._df_of(self.hold)
         #self.eq_value = self._df_of(self.eq_value)
         self.weight = self._df_of(self.weight)
+        self.p_max = self._df_of(self.p_max)
+        self.vol = self._df_of(self.vol)
         self.cum = self._cum()
 
         
