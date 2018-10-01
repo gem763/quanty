@@ -19,7 +19,8 @@ class Backtester(BacktesterBase):
 
         # 매일 기록
         self.p_max = []
-        self.vol = []
+        self.p_profitake = []
+        self.r_losscut = []
         
         self.book = []
         self.book_items = ['trade_amount', 'value', 'trade_cashflow', 'cost', 'cash', 'nav']
@@ -53,8 +54,12 @@ class Backtester(BacktesterBase):
         return self._last_of(self.p_max, alt=pd.Series())
             
         
-    def _vol_last(self):    
-        return self._last_of(self.vol, alt=pd.Series())
+    def _r_losscut_last(self):    
+        return self._last_of(self.r_losscut, alt=pd.Series())
+
+    
+    def _p_profitake_last(self):    
+        return self._last_of(self.p_profitake, alt=pd.Series())
     
             
     def _hold_last(self):
@@ -88,13 +93,13 @@ class Backtester(BacktesterBase):
     
     def _losscut_filter(self, p_close):
         p_max_last = self._p_max_last()[1]
-        vol_last = self._vol_last()[1]
+        r_losscut_last = self._r_losscut_last()[1]
         
         p_max_ = p_max_last.to_frame().T.append(p_close).cummax().iloc[1:]
         self.p_max += [(date_, p_max_.loc[date_]) for date_ in p_max_.index]
         #self.p_max.append(p_max_)
         
-        sigma = vol_last[p_max_.columns]
+        sigma = r_losscut_last[p_max_.columns]
         #sigma = self.losscut
         #set_trace()
         return p_max_*(1-sigma), p_max_*(1-2*sigma)
@@ -113,14 +118,26 @@ class Backtester(BacktesterBase):
                 #hold_last = hold_last[hold_last!=0]
                 p_close_ = self.p_close[hold_last.index].reindex(dates_update, method='ffill')
                 #p_low_ = self.p_low[hold_last.index].reindex(dates_update, method='ffill')
-                
+                #if date==pd.Timestamp('2003-07-31'):set_trace()
                 p_thres1, p_thres2 = self._losscut_filter(p_close_)
-                
-                hold_ = (p_thres1<p_close_).astype(float)
+                p_profitake = self._p_profitake_last()[1]
+                #set_trace()
+                hold_ = p_close_.copy()
+                hold_[:] = np.nan
+                #hold_[p_thres1<p_close_] = 1.0
                 hold_[(p_thres2<p_close_) & (p_close_<=p_thres1)] = 0.5
+                hold_[p_close_<=p_thres2] = 1.0
+                #hold_[p_profitake<=p_close_] = 0.0
+                
+                hold_.fillna(method='ffill', inplace=True)
+                hold_.fillna(1.0, inplace=True)
+                
+                
+                #hold_ = (p_thres1<p_close_).astype(float)
+                #hold_[(p_thres2<p_close_) & (p_close_<=p_thres1)] = 0.5
                 #hold_[p_close_<=p_thres1] = 0.5
-                hold_ = hold_.cummin()
-                hold_[hold_==0] = 1.0
+                #hold_ = hold_.cummin()
+                #hold_[hold_==0] = 1.0
                 #set_trace()
                 #hold_ = (p_thres1<p_close_).astype(float).cummin()
                 #hold_[hold_==0] = 0.5
@@ -192,7 +209,13 @@ class Backtester(BacktesterBase):
         x = self.losscut / std
         #set_trace()
         #x = (self.losscut if self.losscut<std else std) / std
-        return x * pd.Series(np.diag(cov)**0.5, index=weight__.index)
+        #set_trace()
+        vol = pd.Series(np.diag(cov)**0.5, index=weight__.index)
+        r_losscut_ = x * vol
+        r_profitake_ = 3 * vol
+        return r_losscut_, r_profitake_
+    
+        #return x * pd.Series(np.diag(cov)**0.5, index=weight__.index)
     
     
     def _vol_down(self, date, weight_):
@@ -226,13 +249,15 @@ class Backtester(BacktesterBase):
             eq_value_, p_close = self._eq_value(date_trade, hold_)
             #set_trace()
             book_ = self._book(trade_amount_, eq_value_.sum(), trade_cashflow_, cost_, cash_)
+            r_losscut_, r_profitake_ = self._vol(date, weight_)
             #set_trace()
             #self.eq_value.append((date_trade, eq_value_))
             self.book.append((date_trade, book_))
             self.hold.append((date_trade, hold_))
             
             self.p_max.append((date_trade, p_close))
-            self.vol.append((date_trade, self._vol(date, weight_)))
+            self.r_losscut.append((date_trade, r_losscut_))
+            self.p_profitake.append((date_trade, p_close*(1+r_profitake_)))
 
 
     def _positionize(self, date):
@@ -260,7 +285,7 @@ class Backtester(BacktesterBase):
         #self.eq_value = self._df_of(self.eq_value)
         self.weight = self._df_of(self.weight)
         self.p_max = self._df_of(self.p_max)
-        self.vol = self._df_of(self.vol)
+        #self.vol = self._df_of(self.vol)
         self.cum = self._cum()
 
         

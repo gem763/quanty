@@ -3,6 +3,7 @@ import pandas as pd
 import time
 from collections import namedtuple, OrderedDict
 from pandas.tseries.offsets import Day
+from IPython.core.debugger import set_trace
 
 from .plotter import Plotter as pltr
 from ..model import evaluator as ev
@@ -308,11 +309,15 @@ class BacktestComparator(BacktesterBase):
     def mix(self):
         self.cum = self.cum.fillna(method='ffill')
         r_mix = self.cum[list(self.backtests.keys())].pct_change()
-        std_mix = r_mix.ewm(halflife=250, min_periods=20).std()
+        std_mix = r_mix.rolling(60, min_periods=20).std()  #ewm(halflife=250, min_periods=20).std()
+        expr_mix = r_mix.rolling(60, min_periods=20).mean() #.ewm(halflife=250, min_periods=20).mean()
         
         dates_asof = list(self.backtests.values())[0].dates_asof
-        alloc = 1.0 / std_mix.loc[dates_asof]
-        alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(0.25)
+        #alloc = 1.0 / std_mix.loc[dates_asof]
+        alloc = expr_mix.loc[dates_asof] / std_mix.loc[dates_asof]
+        alloc[alloc<0] = 0.0
+        #set_trace()
+        alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(1/5)
         
         mixed = []
         
