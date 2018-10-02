@@ -49,6 +49,9 @@ def base_params(db):
             'follow_trend_market': None, #(20, 60),
             'follow_trend_supporter': None, #(20, 60), 
             'strong_condition': False, }, 
+        'position_manager': {
+            'losscut': 1.0, 
+            'profitake_sigma': 3, }, 
         'te_control': {
             'bm': None, #'ACWI', 
             'te_target': None, 

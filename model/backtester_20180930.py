@@ -60,8 +60,8 @@ class Backtester(BacktesterBase):
     
     def _p_profitake_last(self):    
         return self._last_of(self.p_profitake, alt=pd.Series())
-
-                
+    
+            
     def _hold_last(self):
         return self._last_of(self.hold, alt=pd.Series())
         
@@ -72,6 +72,10 @@ class Backtester(BacktesterBase):
         # len(book_)=0 인 경우는 없다. 
         # 이 함수가 불러질 때는, 적어도 book이 하나이상 채워졌을 때이다. 
         return date, book_[self.i_cash] 
+        
+        
+    #def _weight_last(self):
+    #    return self._last_of(self.weight, alt=pd.Series())
         
         
     def _book(self, trade_amount_, value_, trade_cashflow_, cost_, cash_):
@@ -87,40 +91,18 @@ class Backtester(BacktesterBase):
         return book_    
 
     
-    def _threshold(self, p_close):
+    def _losscut_filter(self, p_close):
         p_max_last = self._p_max_last()[1]
         r_losscut_last = self._r_losscut_last()[1]
-        p_profitake = self._p_profitake_last()[1]
         
         p_max_ = p_max_last.to_frame().T.append(p_close).cummax().iloc[1:]
-        self.p_max += [(date_, p_max_.loc[date_]) for date_ in p_max_.index]        
-        sigma = r_losscut_last[p_max_.columns]
+        self.p_max += [(date_, p_max_.loc[date_]) for date_ in p_max_.index]
+        #self.p_max.append(p_max_)
         
-        p_losscut = p_max_*(1-sigma)
-        p_rentry = p_max_*(1-2*sigma)        
-        return p_losscut, p_rentry, p_profitake
-
-
-    def _hold(self, p_close_, hold_last):
-        p_losscut_, p_rentry_, p_profitake_ = self._threshold(p_close_)
-
-        hold_ = p_close_.copy()
-        hold_[:] = np.nan
-        #hold_[p_thres1<p_close_] = 1.0
-        hold_[(p_rentry_<p_close_) & (p_close_<=p_losscut_)] = 0.5
-        hold_[p_close_<=p_rentry_] = 1.0
-        hold_[p_profitake_<=p_close_] = 0.0
-
-        hold_ = hold_.fillna(method='ffill').fillna(1.0).shift()
-        hold_ = hold_.mul(hold_last, axis=1)
-        hold_.iloc[0] = hold_last
-        return hold_
-    
-    
-    def _trade_cashflow_by_asset(self, p_close_, hold_):
-        trade_share = hold_.diff()
-        trade_share.iloc[0] = 0
-        return -trade_share * p_close_    
+        sigma = r_losscut_last[p_max_.columns]
+        #sigma = self.losscut
+        #set_trace()
+        return p_max_*(1-sigma), p_max_*(1-2*sigma)
     
 
     def _fill_book(self, date):
@@ -132,27 +114,83 @@ class Backtester(BacktesterBase):
             if len(dates_update)!=0:
                 hold_last = self._hold_last()[1]
                 cash_last = self._cash_last()[1]
-
+               
+                #hold_last = hold_last[hold_last!=0]
                 p_close_ = self.p_close[hold_last.index].reindex(dates_update, method='ffill')
-                hold_ = self._hold(p_close_, hold_last)
-                trade_cashflow_by_asset = self._trade_cashflow_by_asset(p_close_, hold_)
-                trade_cashflow_ = trade_cashflow_by_asset.sum(axis=1)
-                trade_amount_ = abs(trade_cashflow_by_asset).sum(axis=1)
-                cost_ = trade_amount_ * self.expense
-                cash_ = (trade_cashflow_-cost_).cumsum() + cash_last
-                eq_value_ = p_close_ * hold_
-                value_ = eq_value_.sum(axis=1)
+                #p_low_ = self.p_low[hold_last.index].reindex(dates_update, method='ffill')
+                #if date==pd.Timestamp('2003-07-31'):set_trace()
+                p_thres1, p_thres2 = self._losscut_filter(p_close_)
+                p_profitake = self._p_profitake_last()[1]
+                #set_trace()
+                hold_ = p_close_.copy()
+                hold_[:] = np.nan
+                #hold_[p_thres1<p_close_] = 1.0
+                hold_[(p_thres2<p_close_) & (p_close_<=p_thres1)] = 0.5
+                hold_[p_close_<=p_thres2] = 1.0
+                #hold_[p_profitake<=p_close_] = 0.0
+                
+                hold_.fillna(method='ffill', inplace=True)
+                hold_.fillna(1.0, inplace=True)
+                
+                
+                #hold_ = (p_thres1<p_close_).astype(float)
+                #hold_[(p_thres2<p_close_) & (p_close_<=p_thres1)] = 0.5
+                #hold_[p_close_<=p_thres1] = 0.5
+                #hold_ = hold_.cummin()
+                #hold_[hold_==0] = 1.0
+                #set_trace()
+                #hold_ = (p_thres1<p_close_).astype(float).cummin()
+                #hold_[hold_==0] = 0.5
+                hold_ = hold_.mul(hold_last, axis=1).shift()
+                hold_.iloc[0] = hold_last
+                
+                #share_sell = -hold_last.to_frame().T.append(hold_).diff().iloc[1:]
+                share_sell = -hold_.diff()
+                share_sell.iloc[0] = 0
+                #amount_sell = (share_sell * p_thres).sum(axis=1)
+                amount_sell = (share_sell * p_close_).sum(axis=1)
+                cost_sell = amount_sell * self.expense
+                cash_ = (amount_sell-cost_sell).cumsum() + cash_last
+                
+                eq_value_update = p_close_ * hold_
+                value_update = eq_value_update.sum(axis=1)
 
                 book_update = np.zeros((len(dates_update), self.book_items_n))
-                book_update[:,self.i_trade_amount] = trade_amount_
-                book_update[:,self.i_value] = value_
-                book_update[:,self.i_trade_cashflow] = trade_cashflow_
-                book_update[:,self.i_cost] = cost_
+                book_update[:,self.i_value] = value_update
                 book_update[:,self.i_cash] = cash_
-                book_update[:,self.i_nav] = value_ + cash_
+                book_update[:,self.i_nav] = value_update + cash_
 
                 self.book += zip(dates_update, book_update.tolist())
+                #set_trace()
                 self.hold += [(date_, hold_.loc[date_]) for date_ in hold_.index]
+                #set_trace()
+
+        else:
+            self.book.append((date, self._book(0, 0, 0, 0, self.cash)))
+            
+    
+    
+    def _fill_book2(self, date):
+
+        if len(self.book)!=0:
+            date_last = self.book[-1][0]
+            dates_update = self.dates[(date_last<self.dates) & (self.dates<=date)]
+
+            if len(dates_update)!=0:
+                hold_last = self._hold_last()[1]
+                cash_last = self._cash_last()[1]
+
+                p_close_ = self.p_close[hold_last.index].reindex(dates_update, method='ffill')
+                eq_value_update = p_close_.mul(hold_last, axis=1)
+                
+                value_update = eq_value_update.sum(axis=1)
+
+                book_update = np.zeros((len(dates_update), self.book_items_n))
+                book_update[:,self.i_value] = value_update
+                book_update[:,self.i_cash] = cash_last
+                book_update[:,self.i_nav] = value_update + cash_last
+
+                self.book += zip(dates_update, book_update.tolist())
 
         else:
             self.book.append((date, self._book(0, 0, 0, 0, self.cash)))
@@ -162,20 +200,33 @@ class Backtester(BacktesterBase):
     def _df_of(self, which, columns=None):
         return pd.DataFrame.from_dict(dict(which), orient='index', columns=columns).fillna(0).sort_index()
 
-
-    def _tolerance(self, date, weight_):
-        n_days = int(len(self.dates)/len(self.dates_asof))
+    
+    def _vol(self, date, weight_):
         weight__ = weight_[weight_!=0]
-        cov = self.r[weight__.index].iloc[-250:].cov() * n_days
+        cov = self.r[weight__.index].iloc[-250:].cov() * 20
         std = weight__.T.dot(cov.dot(weight__))**0.5
         
         x = self.losscut / std
+        #set_trace()
+        #x = (self.losscut if self.losscut<std else std) / std
+        #set_trace()
         vol = pd.Series(np.diag(cov)**0.5, index=weight__.index)
         r_losscut_ = x * vol
-        r_profitake_ = self.profitake_sigma * vol
+        r_profitake_ = 3 * vol
         return r_losscut_, r_profitake_
     
+        #return x * pd.Series(np.diag(cov)**0.5, index=weight__.index)
     
+    
+    def _vol_down(self, date, weight_):
+        #set_trace()
+        rt = self.r[weight_.index].iloc[-250:]
+        downrisk = pd.Series({asset:ev._std_dir_by_r(rt[asset], -1)/100 for asset in weight_.index})
+        std = (weight_*downrisk).sum()
+        x = self.losscut / std
+        return x * downrisk
+    
+
     def _rebalance(self, date, weight_):
         # 이게 있으면, 리밸일마다 기록되는 것들(eq_value, hold 등)이 기록이 안되는 경우가 있다. 
         #if weight_.sub(self._weight_last()[1], fill_value=0).abs().sum()==0:
@@ -192,11 +243,14 @@ class Backtester(BacktesterBase):
 
         if date_trade in self.p_close.index:
             self._fill_book(date_trade-Day())
+            #if date_trade==pd.Timestamp('2003-02-03'):set_trace()
+            
             trade_amount_, trade_cashflow_, cost_, cash_, hold_ = self._trade(date_trade, weight_, self._hold_last()[1], self._cash_last()[1])
             eq_value_, p_close = self._eq_value(date_trade, hold_)
+            #set_trace()
             book_ = self._book(trade_amount_, eq_value_.sum(), trade_cashflow_, cost_, cash_)
-            r_losscut_, r_profitake_ = self._tolerance(date, weight_)
-
+            r_losscut_, r_profitake_ = self._vol(date, weight_)
+            #set_trace()
             #self.eq_value.append((date_trade, eq_value_))
             self.book.append((date_trade, book_))
             self.hold.append((date_trade, hold_))
