@@ -143,6 +143,7 @@ class BacktesterBase(object):
             
         # Planning
         nav_prev = pos_prev_amount.sum() + cash_
+        #pos_amount = self.gr_exposure * self.cash * weight_
         pos_amount = self.gr_exposure * nav_prev * weight_
         pos_buffer = nav_prev - pos_amount.sum()
         amount_chg = pos_amount.sub(pos_prev_amount, fill_value=0)
@@ -318,6 +319,7 @@ class BacktestComparator(BacktesterBase):
         alloc[alloc<0] = 0.0
         #set_trace()
         alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(1/5)
+        #alloc[:] = 0.2
         
         mixed = []
         
