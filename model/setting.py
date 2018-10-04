@@ -496,6 +496,7 @@ assets_global_eq = {
     'Chile',
     'Colombia',
     'Saudi',
+    #'BND_US_Long', 
 }
 
 

@@ -204,6 +204,10 @@ class BacktesterBase(object):
         pltr.plot_cum_yearly(self.cum[strats], **params)
 
         
+    def plot_cum_multi_periods(self, strats, **params): 
+        pltr.plot_cum_multi_periods(self.cum[strats], **params)
+        
+        
     def plot_turnover(self):
         pltr.plot_turnover(self.turnover)
         

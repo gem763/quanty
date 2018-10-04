@@ -119,7 +119,51 @@ class Plotter(object):
             names, 
             bbox_to_anchor=(0, 1.15, 1, 0), ncol=2, loc=3
         );
-                    
+
+
+
+    @classmethod
+    def plot_cum_multi_periods(cls, cum, names=None, color=None, style=None, logy=True, separator=[]):
+        #years = cum.index.year.unique()
+        #eoy = None
+        
+        cum_list = []
+        start = cum.index[0]
+        separator.append(cum.index[-1])
+
+        for isep, sep in enumerate(separator):
+            cum_ = cum.loc[start:sep]
+
+            if len(cum_)>1:
+                cum_ /= cum_.iloc[0]
+                cum_list.append((start, cum_))
+
+            start = cum_.index[-1]
+
+        nFig = len(cum_list)
+        nWidth = len(separator)
+        nHeight = 1 #int(np.ceil(float(nFig)/nWidth))
+        fSize_w = 5
+        fSize_h = 4
+
+        fig, axes = plt.subplots(nHeight, nWidth, sharey=True, figsize=(fSize_w*nWidth, fSize_h*nHeight))
+        axes = axes.flatten()
+        plt.subplots_adjust(hspace=0.6)
+        [ax.axis('off') for ax in axes]
+
+        for i, (start, cum_) in enumerate(cum_list):
+            ax = axes[i]
+            ax.axis('on')
+            cum_.plot(ax=ax, legend=False, logy=logy, color=color, style=style, xlim=(cum_.index[0],cum_.index[-1]))#, xticks=cum_.index[::250])
+            ax.set_title('start: '+str(start.date()), fontsize=15, weight='bold')
+            #ax.xaxis.set_major_formatter(mdates.DateFormatter('%m'))
+
+        if names is None:
+            names = cum.columns #strats
+
+        axes[0].legend(names, bbox_to_anchor=(0, 1.2, nWidth, 0), ncol=len(names), loc=3);
+        
+        
 
     @classmethod
     def plot_cum_yearly(cls, cum, names=None, color=None, style=None, remove=[]):

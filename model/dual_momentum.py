@@ -153,7 +153,7 @@ class DualMomentumSelector(object):
 
         
     def _assets(self):
-        assets_score = self.assets
+        assets_score = self.assets #| {self.supporter}
         assets_sig = assets_score | {self.cash_equiv, self.supporter}
         if self.market is not None: assets_sig.update({self.market})
 
@@ -165,7 +165,7 @@ class DualMomentumSelector(object):
         #이렇게하면 assets_score에 supporter가 없는 경우, (즉 supporter가 assets_sig 에만 있는 경우)
         #supporter의 랭크가 ranks에서 빠져서, supporter가 weights에서 제외되므로, 
         #반드시 assets_score에 supporter를 추가해야한다. 
-        
+        #set_trace()
         score = self.sig.copy()
         score[list(set(score.columns)-set(self.assets_score))] = np.nan
         
@@ -214,22 +214,23 @@ class DualMomentumSelector(object):
         
     def _signal_with(self, sig_w, dates):    
         n_sig = sig_w.shape[1]
-        #pr = self.p_close.loc[:dates[-1], self.assets_sig].resample('M').ffill()
-        #pr.index = self.p_close.index[self.p_close.index.get_indexer(pr.index, method='ffill')]
                 
         def __sig_at(date):
-            sig_w_ = sig_w.loc[date]
-            #pr_ = pr.loc[:date].iloc[-n_sig-1:]
-            pr_ = self.p_close.loc[:date, self.assets_sig][::-self.sig_w_term][:n_sig+1][::-1]
-            rt = (pr_.iloc[-1]/pr_.iloc[:-1]-1).replace(np.inf, np.nan)
-            sig_w_ = sig_w_.iloc[-len(rt):]
-            return rt.mul(sig_w_.values, axis=0).sum(skipna=False)
+            #if date==pd.Timestamp('2008-09-30'): set_trace()
+            sig_w_ = sig_w.loc[date]            
+            pr_ = self.p_close.loc[:date, self.assets_sig]
+            pr__ = pr_[::-self.sig_w_term][:n_sig+1][::-1]
+            rt = (pr__.iloc[-1]/pr__.iloc[:-1]-1).replace(np.inf, np.nan)
+            #std = pd.DataFrame([pr_.iloc[-i_sig*self.sig_w_term-1:].pct_change().std() for i_sig in range(n_sig,0,-1)], index=rt.index)
+            
+            sig_w_ = sig_w_.iloc[-len(rt):]#; set_trace()
+            return (rt).mul(sig_w_.values, axis=0).sum(skipna=False)
         
         return pd.DataFrame([__sig_at(date) for date in dates], index=dates)
         
             
     def _sig_w(self, dates):
-        sig_w_base = self.sig_w_base
+        sig_w_base = [0]*12 if self.sig_w_base is None else self.sig_w_base
         
         if self.sig_w_dynamic:
             mixer = self._sig_dynamic_mix(dates)
@@ -259,12 +260,18 @@ class DualMomentumSelector(object):
         pr_ = pr#.iloc[-n_fwd-n_delay-n_sample-n_backs[0]:]
         p1 = pr_.shift(n_fwd+n_delay)
         p2 = pr_
-        perf_fut = p2.pct_change(n_fwd)#.iloc[-n_sample:]
+        perf_fut_rt = p2.pct_change(n_fwd)#.iloc[-n_sample:]
+        perf_fut_std = p2.pct_change().rolling(n_fwd).std()
+        perf_fut = perf_fut_rt/perf_fut_std
         
         def _get_cor(n_back):
-            perf_past = p1.pct_change(n_back)#.iloc[-n_sample:]
-            #return (perf_past/perf_past.std()).corrwith(perf_fut/perf_fut.std(), axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
-            return perf_past.corrwith(perf_fut, axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
+            perf_past_rt = p1.pct_change(n_back)#.iloc[-n_sample:]
+            perf_past_std = p1.pct_change().rolling(n_back).std()
+            perf_past = perf_past_rt/perf_past_std
+            cor = perf_past_rt.corrwith(perf_fut_rt, axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
+            set_trace()
+            return cor
+            #return perf_past.corrwith(perf_fut, axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
             #return perf_past.corrwith(perf_fut, axis=1).ewm(halflife=250).mean()
 
         #out = []
@@ -287,10 +294,15 @@ class DualMomentumSelector(object):
         pr = self.p_close.loc[:dates[-1], self.assets_score]
         out = pd.DataFrame()
         
-        for n_fwd in self.sig_dyn_fwd:
-            out = out.add(self._sig_dynamic_mix_by_n_fwd(dates, pr, n_backs, n_fwd)/n_fwd, fill_value=0)
+        div = []
+        for i_fwd, n_fwd in enumerate(self.sig_dyn_fwd):
+            #set_trace()
+            out = out.add(self._sig_dynamic_mix_by_n_fwd(dates, pr, n_backs, n_fwd)/(i_fwd+1), fill_value=0)
+            div.append(i_fwd+1)
+            
 
-        out /= sum(1/np.array(self.sig_dyn_fwd))
+        #set_trace()
+        out /= sum(1/np.array(div))
         return out        
         
         
@@ -321,11 +333,11 @@ class DualMomentumSelector(object):
 
                     elif sp_has_trend:
                         pass
-                        #pos_sp = int(pos_sp*0.5)
+                        #pos_sp = pos_sp*0.5
 
                     elif sp_has_positive_sig:
                         pass
-                        #pos_sp = int(pos_sp*0.5)
+                        #pos_sp = pos_sp*0.5
 
                 else:
                     cash_has_positive_sig = self.sig.loc[date, self.cash_equiv]>=0
@@ -369,6 +381,7 @@ class DualMomentumSelector(object):
         ranks = self.ranks.loc[date]
         sig = self.sig.loc[date]
                
+        #if date==pd.Timestamp('2008-09-30'): set_trace()
         if self.mode=='DualMomentum':
             pos = (score>0) & (ranks<=n_picks)
             #if self.market is not None:

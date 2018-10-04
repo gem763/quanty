@@ -97,7 +97,7 @@ class Backtester(BacktesterBase):
         sigma = r_losscut_last[p_max_.columns]
         
         p_losscut = p_max_*(1-sigma)
-        p_rentry = p_max_*(1-2*sigma)        
+        p_rentry = p_max_*(1-20*sigma)        
         return p_losscut, p_rentry, p_profitake
 
 
@@ -222,6 +222,7 @@ class Backtester(BacktesterBase):
     
     def _run(self):
         for date in tqdm_notebook(self.dates_asof):
+            #if date==pd.Timestamp('2008-10-31'): set_trace()
             weight_ = self._positionize(date)
             self._rebalance(date, weight_)
         
