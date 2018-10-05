@@ -98,24 +98,32 @@ def _turnover(weights):
     return turnover.rolling(12).sum().dropna()
 
 
-def _stats(cum, beta_to, n_roll_stats):
-    #cum = self.cum
-    cum_last = cum.iloc[-1]
-    n_samples = cum.count()
+def _stats(cum, beta_to, n_roll_stats, start=None, end=None):
+    cum_ = cum.copy()
+    
+    if start is not None:
+        cum_ = cum_.loc[start:]
+        cum_ /= cum_.iloc[0]
+        
+    if end is not None:
+        cum_ = cum_.loc[:end]
+    
+    cum_last = cum_.iloc[-1]
+    n_samples = cum_.count()
 
     # Base stats: 전체구간
     cagr = (cum_last**(250/(n_samples-1)) - 1) * 100
-    std = cum.pct_change().std() * (250**0.5) * 100
+    std = cum_.pct_change().std() * (250**0.5) * 100
     sharpe = cagr / std
     #mdd = (cum.expanding().apply(lambda x: x[-1]/np.nanmax(x)-1).min()) * 100
-    mdd = (cum.div(cum.cummax()) - 1).min() * 100
+    mdd = (cum_.div(cum_.cummax()) - 1).min() * 100
     #set_trace()
-    consistency = (pd.Series([_consistency(cum[col].dropna()) for col in cum], index=cum.columns)) * 100
-    beta = pd.Series([_beta(cum[[col, beta_to]].pct_change().dropna(how='any').values) for col in cum], index=cum.columns)
+    consistency = (pd.Series([_consistency(cum_[col].dropna()) for col in cum_], index=cum_.columns)) * 100
+    beta = pd.Series([_beta(cum_[[col, beta_to]].pct_change().dropna(how='any').values) for col in cum_], index=cum_.columns)
 
     # Rolling stats
     #set_trace()
-    cum_roll = cum.rolling(n_roll_stats)
+    cum_roll = cum_.rolling(n_roll_stats)
     cagr_roll = cum_roll.apply(_cagr, raw=True)
     std_roll = cum_roll.apply(_std, raw=True)
     sharpe_roll = cagr_roll/std_roll
@@ -126,7 +134,7 @@ def _stats(cum, beta_to, n_roll_stats):
     loss_proba = (cagr_roll<0).sum()/cagr_roll.count() * 100
 
     # With 1M returns
-    r_month = cum.resample('M').ffill().pct_change()
+    r_month = cum_.resample('M').ffill().pct_change()
     hit = ((r_month>0).sum() / (r_month.count()-1)) * 100
     profit_to_loss = - r_month[r_month>0].mean() / r_month[r_month<0].mean()
 

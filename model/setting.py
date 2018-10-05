@@ -17,6 +17,7 @@ def base_params(db):
             'trade_delay': 1, 
             'freq': 'M', 
             'cash': 100000000, 
+            'rebal_style': 'cum', # 'equal'
             'expense': 0.001, 
             'gr_exposure': 0.99, }, 
         'selecting': {
@@ -51,7 +52,8 @@ def base_params(db):
             'strong_condition': False, }, 
         'position_manager': {
             'losscut': 1.0, 
-            'profitake_sigma': 3, }, 
+            'profitake_sigma': 3, 
+            'rentry_sigma': 3, }, 
         'te_control': {
             'bm': None, #'ACWI', 
             'te_target': None, 
@@ -428,7 +430,7 @@ assets_us_sector = {
 
 assets_fi = {
     #'BND_US_AGG', #
-    'BND_US_Short',
+    #'BND_US_Short',
     'BND_US_Interm',
     #'BND_US_Long', #
     'BND_US_TIP',

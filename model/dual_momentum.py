@@ -216,7 +216,6 @@ class DualMomentumSelector(object):
         n_sig = sig_w.shape[1]
                 
         def __sig_at(date):
-            #if date==pd.Timestamp('2008-09-30'): set_trace()
             sig_w_ = sig_w.loc[date]            
             pr_ = self.p_close.loc[:date, self.assets_sig]
             pr__ = pr_[::-self.sig_w_term][:n_sig+1][::-1]
@@ -227,11 +226,31 @@ class DualMomentumSelector(object):
             return (rt).mul(sig_w_.values, axis=0).sum(skipna=False)
         
         return pd.DataFrame([__sig_at(date) for date in dates], index=dates)
+
+    
+    def _signal_with2(self, sig_w, dates):    
+        n_sig = sig_w.shape[1]
+                
+        def __sig_at(date):
+            sig_w_ = sig_w.xs(date, level=0)
+            pr_ = self.p_close.loc[:date, self.assets_sig]
+            pr__ = pr_[::-self.sig_w_term][:n_sig+1][::-1]
+            rt = (pr__.iloc[-1]/pr__.iloc[:-1]-1).replace(np.inf, np.nan)
+            #std = pd.DataFrame([pr_.iloc[-i_sig*self.sig_w_term-1:].pct_change().std() for i_sig in range(n_sig,0,-1)], index=rt.index)
+            
+            #set_trace()
+            #sig_w_ = sig_w_.iloc[-len(rt):]
+            rt.index = sig_w_.columns[-len(rt):]
+            #std.index = sig_w_.columns[-len(rt):]
+            return (rt).mul(sig_w_.T).sum(skipna=False)
+            #return (rt).mul(sig_w_.values, axis=0).sum(skipna=False)
         
+        return pd.DataFrame([__sig_at(date) for date in dates], index=dates)    
+    
             
     def _sig_w(self, dates):
         sig_w_base = [0]*12 if self.sig_w_base is None else self.sig_w_base
-        
+        #set_trace()
         if self.sig_w_dynamic:
             mixer = self._sig_dynamic_mix(dates)
             
@@ -257,37 +276,86 @@ class DualMomentumSelector(object):
     def _sig_dynamic_mix_by_n_fwd(self, dates, pr, n_backs, n_fwd):
         n_delay = 0
 
-        pr_ = pr#.iloc[-n_fwd-n_delay-n_sample-n_backs[0]:]
+        pr_ = pr
         p1 = pr_.shift(n_fwd+n_delay)
         p2 = pr_
-        perf_fut_rt = p2.pct_change(n_fwd)#.iloc[-n_sample:]
+        perf_fut_rt = p2.pct_change(n_fwd)
         perf_fut_std = p2.pct_change().rolling(n_fwd).std()
         perf_fut = perf_fut_rt/perf_fut_std
         
         def _get_cor(n_back):
-            perf_past_rt = p1.pct_change(n_back)#.iloc[-n_sample:]
+            perf_past_rt = p1.pct_change(n_back)
             perf_past_std = p1.pct_change().rolling(n_back).std()
             perf_past = perf_past_rt/perf_past_std
             cor = perf_past_rt.corrwith(perf_fut_rt, axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
-            set_trace()
+            #set_trace()
             return cor
             #return perf_past.corrwith(perf_fut, axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
             #return perf_past.corrwith(perf_fut, axis=1).ewm(halflife=250).mean()
 
-        #out = []
-        #for n_back in n_backs:
-        #    perf_past = p1.pct_change(n_back).iloc[-n_sample:]
-        #    out.append(perf_past.corrwith(perf_fut, axis=1).mean())
-        
-        #return pd.Series(out, index=n_backs).fillna(0)
-        
-        #return pd.Series([_get_cor(n_back) for n_back in n_backs], index=n_backs).fillna(0)
         mixer = pd.DataFrame({n_back:_get_cor(n_back) for n_back in n_backs})[n_backs]#.fillna(0)
         mixer = mixer.reindex(index=dates, method='ffill').fillna(0)
         mixer[(mixer<=self.sig_dyn_thres) & (mixer>=-self.sig_dyn_thres)] = 0
         return mixer
         
 
+    def _sig_dynamic_mix_by_n_fwd2(self, dates, pr, n_backs, n_fwd):
+        n_delay = 0
+
+        pr_ = pr
+        p1 = pr_.shift(n_fwd+n_delay)
+        p2 = pr_
+        perf_fut_rt = p2.pct_change(n_fwd)
+        perf_fut_std = p2.pct_change().rolling(n_fwd).std()
+        perf_fut = perf_fut_rt/perf_fut_std
+        
+        def _get_cor(n_back):
+            perf_past_rt = p1.pct_change(n_back)
+            perf_past_std = p1.pct_change().rolling(n_back).std()
+            perf_past = perf_past_rt/perf_past_std
+            #set_trace()
+            #cor = perf_past_rt.corrwith(perf_fut_rt, axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
+            #set_trace()
+            #perf_past_rt.loc[:dates[0]].iloc[::-5].iloc[:20]
+            #cor = pd.DataFrame([perf_past_rt.loc[:date].iloc[-20:].corrwith(perf_fut_rt.loc[:date].iloc[-20:]) for date in dates], index=dates)
+            cor = pd.DataFrame([
+                perf_past_rt.loc[:date].iloc[::-5].iloc[:50].corrwith(perf_fut_rt.loc[:date].iloc[::-5].iloc[:50])
+                for date in dates
+            ], index=dates)
+            #set_trace()
+            return cor.stack()
+            #return perf_past.corrwith(perf_fut, axis=1).rolling(self.sig_dyn_n_sample, min_periods=2).mean()
+            #return perf_past.corrwith(perf_fut, axis=1).ewm(halflife=250).mean()
+
+        
+        mixer = pd.DataFrame({n_back:_get_cor(n_back) for n_back in n_backs})[n_backs]#.fillna(0)
+        #set_trace()
+        #mixer = mixer.reindex(index=dates, method='ffill').fillna(0)
+        mixer[(mixer<=self.sig_dyn_thres) & (mixer>=-self.sig_dyn_thres)] = 0
+        return mixer        
+        
+        
+
+    def _sig_dynamic_mix2(self, dates):
+        n_backs = list(range(self.sig_w_term*self.sig_dyn_m_backs, 0, -self.sig_w_term))
+        pr = self.p_close.loc[:dates[-1], self.assets_score]
+        #out = pd.DataFrame()
+        
+        div = []
+        for i_fwd, n_fwd in enumerate(self.sig_dyn_fwd):
+            #set_trace()
+            if i_fwd==0:
+                out = self._sig_dynamic_mix_by_n_fwd(dates, pr, n_backs, n_fwd)/(i_fwd+1)
+            else:
+                out = out.add(self._sig_dynamic_mix_by_n_fwd2(dates, pr, n_backs, n_fwd)/(i_fwd+1), fill_value=0)
+            #out = out.add(self._sig_dynamic_mix_by_n_fwd(dates, pr, n_backs, n_fwd)/(i_fwd+1), fill_value=0)
+            div.append(i_fwd+1)
+            
+
+        #set_trace()
+        out /= sum(1/np.array(div))
+        return out        
+ 
 
     def _sig_dynamic_mix(self, dates):
         n_backs = list(range(self.sig_w_term*self.sig_dyn_m_backs, 0, -self.sig_w_term))
@@ -296,15 +364,12 @@ class DualMomentumSelector(object):
         
         div = []
         for i_fwd, n_fwd in enumerate(self.sig_dyn_fwd):
-            #set_trace()
             out = out.add(self._sig_dynamic_mix_by_n_fwd(dates, pr, n_backs, n_fwd)/(i_fwd+1), fill_value=0)
             div.append(i_fwd+1)
             
-
-        #set_trace()
         out /= sum(1/np.array(div))
         return out        
-        
+
         
     def _n_picks(self):
         if isinstance(self.n_picks, int):

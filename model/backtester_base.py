@@ -40,8 +40,12 @@ class BacktesterBase(object):
         print(time.time()-st)
         
         self.turnover = ev._turnover(self.port.weight)
-        self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)
+        #self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)
 
+        
+    def get_stats(self, **params):
+        return ev._stats(self.cum, self.beta_to, self.stats_n_roll, **params)
+        
         
     def _run(self):
         raise NotImplementedError
@@ -143,8 +147,8 @@ class BacktesterBase(object):
             
         # Planning
         nav_prev = pos_prev_amount.sum() + cash_
-        #pos_amount = self.gr_exposure * self.cash * weight_
-        pos_amount = self.gr_exposure * nav_prev * weight_
+        pos_amount = self.gr_exposure * weight_ * (self.cash if self.rebal_style=='equal' else nav_prev)
+        #pos_amount = self.gr_exposure * nav_prev * weight_
         pos_buffer = nav_prev - pos_amount.sum()
         amount_chg = pos_amount.sub(pos_prev_amount, fill_value=0)
         amount_buy_plan = amount_chg[amount_chg>0]
@@ -292,7 +296,8 @@ class BacktestComparator(BacktesterBase):
         self.dict_flatten(params, params_flat)
         self.__dict__.update(params_flat)
         self.backtests = OrderedDict(backtests)
-        self.cum, self.stats = self._get_results()
+        #self.cum, self.stats = self._get_results()
+        self.cum = self._get_results()
 
 
     def _get_results(self):
@@ -301,21 +306,24 @@ class BacktestComparator(BacktesterBase):
                 cum = v.cum.copy()
                 cum.rename(columns={'DualMomentum':k}, inplace=True)
               
-                stats = v.stats.copy()
-                stats.rename(index={'DualMomentum':k}, inplace=True)
+                #stats = v.stats.copy()
+                #stats.rename(index={'DualMomentum':k}, inplace=True)
                 
             else:
                 cum.loc[:,k] = v.cum.loc[:,'DualMomentum']
-                stats.loc[k] = v.stats.loc['DualMomentum']
+                #stats.loc[k] = v.stats.loc['DualMomentum']
                 
-        return cum, stats
+        return cum#, stats
         
         
     def mix(self):
         self.cum = self.cum.fillna(method='ffill')
         r_mix = self.cum[list(self.backtests.keys())].pct_change()
-        std_mix = r_mix.rolling(60, min_periods=20).std()  #ewm(halflife=250, min_periods=20).std()
-        expr_mix = r_mix.rolling(60, min_periods=20).mean() #.ewm(halflife=250, min_periods=20).mean()
+        std_mix = r_mix.rolling(60, min_periods=20).std()
+        expr_mix = r_mix.rolling(60, min_periods=20).mean()
+        
+        #std_mix = r_mix.ewm(halflife=60, min_periods=20).std()
+        #expr_mix = r_mix.ewm(halflife=60, min_periods=20).mean()
         
         dates_asof = list(self.backtests.values())[0].dates_asof
         #alloc = 1.0 / std_mix.loc[dates_asof]
@@ -324,6 +332,7 @@ class BacktestComparator(BacktesterBase):
         #set_trace()
         alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(1/5)
         #alloc[:] = 0.2
+        #set_trace()
         
         mixed = []
         
@@ -344,7 +353,7 @@ class BacktestComparator(BacktesterBase):
             
         mixed = pd.DataFrame(mixed, index=self.cum.index)
         self.cum['mixed'] = mixed['sum']
-        self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)
+        #self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)
         
         
     def plot_stats_pool(self, **params):

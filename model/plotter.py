@@ -27,8 +27,16 @@ class Plotter(object):
 
 
     @classmethod
-    def plot_cum(cls, prices, strats, names=None, color=None, style=None, logy=True):
+    def plot_cum(cls, prices, strats, names=None, color=None, style=None, logy=True, start=None, end=None):
         prices_ = prices[strats]
+        
+        if start is not None:
+            prices_ = prices_.loc[start:]
+            prices_ /= prices_.iloc[0]
+            
+        if end is not None:
+            prices_ = prices_.loc[:end]
+        
         ax = prices_.plot(
             figsize=(7,5), 
             logy=logy, color=color, style=style, 

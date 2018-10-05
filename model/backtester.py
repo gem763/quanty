@@ -97,7 +97,7 @@ class Backtester(BacktesterBase):
         sigma = r_losscut_last[p_max_.columns]
         
         p_losscut = p_max_*(1-sigma)
-        p_rentry = p_max_*(1-20*sigma)        
+        p_rentry = p_max_*(1-self.rentry_sigma*sigma)        
         return p_losscut, p_rentry, p_profitake
 
 
