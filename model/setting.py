@@ -214,7 +214,7 @@ assets_kr_factor = {
     #'Pref_kr', ##
 }
 
-assets_us_factor = {
+assets_global_factor = {
     'Quality', 
     'Value', 
     'Growth', 
@@ -362,7 +362,7 @@ assets_global_sector = {
 }
 
 
-assets_kr_us_global_sector = {
+assets_global_sector2 = {
     #'IT_kr', 
     #'Financial_kr',
     #'Construction_kr', 
@@ -445,7 +445,7 @@ assets_fi = {
 
     'BND_GlobalSov_loc',
     'BND_GlobalTip_loc',
-    'BND_GlobalSov_loch',
+    #'BND_GlobalSov_loch',
     'BND_DevSov_loc',
     'BND_DevFloat_usd',
     'BND_DevIG_loc',
@@ -454,6 +454,9 @@ assets_fi = {
     'BND_EmSov_loc',
     'BND_EmHy_usd',
     #'BND_ChinaCredit_loc', 
+    
+    #'KTB10Y', 
+    #'KTB10YL', 
 }
 
 assets_global_eq = {
