@@ -183,13 +183,16 @@ class DualMomentumSelector(object):
         
         
     def _trend(self, dates):
-        has_trend = has_trend_sp = has_trend_market = None
+        has_trend = has_trend_sp = has_trend_cash = has_trend_market = None
         
         if self.follow_trend is not None:
             has_trend = self._has_trend(dates, self.follow_trend)
             
         if (self.follow_trend_supporter is not None) & (self.supporter is not None):
             has_trend_sp = self._has_trend(dates, self.follow_trend_supporter, asset=self.supporter)
+            
+        #if (self.follow_trend_cash is not None) & (self.cash_equiv is not None):    
+        #    has_trend_cash = self._has_trend(dates, self.follow_trend_cash, asset=self.cash_equiv)
         
         if (self.follow_trend_market is not None) & (self.market is not None):
             has_trend_market = self._has_trend(dates, self.follow_trend_market, asset=self.market)
@@ -405,10 +408,11 @@ class DualMomentumSelector(object):
                         #pos_sp = pos_sp*0.5
 
                 else:
+                    #cash_has_trend = self.has_trend_cash.loc[date] if self.has_trend_cash is not None else False
                     cash_has_positive_sig = self.sig.loc[date, self.cash_equiv]>=0
                     pos = self._get_default_selection(date, n_picks)
 
-                    if cash_has_positive_sig:# and cash_has_trend:
+                    if cash_has_positive_sig:# or cash_has_trend:
                         pos_cash = n_picks - pos.sum()
             
             else:
@@ -445,21 +449,15 @@ class DualMomentumSelector(object):
         score = self.score.loc[date]
         ranks = self.ranks.loc[date]
         sig = self.sig.loc[date]
-               
-        #if date==pd.Timestamp('2008-09-30'): set_trace()
+
         if self.mode=='DualMomentum':
             pos = (score>0) & (ranks<=n_picks)
-            #if self.market is not None:
-                # self.has_trend_market[date]는 Supporter에 몰빵하는 것을 막기위한 장치
-            #    pos &= (sig[self.market]>0) | (self.has_trend_market[date])
           
         elif self.mode=='RelativeMomentum':
             pos = ranks<=n_picks
           
         elif self.mode=='AbsoluteMomentum':
             pos = (score>0)
-            #if self.market is not None:
-            #    pos &= (sig[self.market]>0)
                         
         return pos.astype(int)        
         

@@ -124,6 +124,9 @@ assets_multiasset = {
     'BND_EmSov_usd',
     'BND_EmSov_loc',
     'BND_EmHy_usd',
+    
+    #'KTB10Y', 
+    #'KTB10YL', 
 
     'USD_UP', 
     #'JPY', 
@@ -537,6 +540,7 @@ mapper = {
     'tiger_ksp':                         'KSP', 
     'tiger_ksp_dvd_high':                'HighDvd_kr_2', 
     'tiger_lev':                         'K200L', 
+    'tiger_inv':                         'K200inv',
     'tiger_lowvol':                      'LowVol_kr_3', 
     'tiger_mtum':                        'MomentumGrowth_kr', 
     'tiger_pref':                        'Pref_kr', 
