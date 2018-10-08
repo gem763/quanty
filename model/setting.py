@@ -79,7 +79,7 @@ assets_adm = {
 }
 
 
-assets_multiasset = {
+assets_global_multiasset = {
     #'ACWI', 
     'US_Total', 
     'Global', 
@@ -139,8 +139,7 @@ assets_multiasset = {
 
     'REIT_Global', 
     'REIT_US', 
-    #'REIT_US_Mort',     
-    
+    'REIT_US_Mort',    
 }
 
 assets_region = {
@@ -169,6 +168,54 @@ assets_fx = {
 }
 
 
+assets_alt = {
+    'BND_US_TIP', 
+    #'BND_US_Long', 
+    
+    'Comdty', 
+    #'WTI', 
+    #'Gold', 
+    #'Silver',
+    #'NatGas',    
+    'Agriculture', 
+    'Engy', 
+    'BaseMetal', 
+    'PrecMetal', 
+    
+    'REIT_Global', 
+    'REIT_US', 
+    'REIT_US_Mort',    
+    'Infra', 
+
+    'MLP', 
+    #'NaturalGas', 
+    #'Exploration', 
+    'Solar', 
+    'Wind',    
+    
+    'PE', 
+    'Bio', 
+    'Water', 
+
+    'Lithium', 
+    'Steel', 
+    'Timber', 
+    #'Uranium', 
+
+    #'USD_UP', 
+    #'JPY', 
+    #'EUR', 
+    #'AUD', 
+    #'CAD', 
+    #'CHF', 
+    #'GBP', 
+    #'USD_DOWN', 
+    'IPO', 
+    'Gender', 
+    'M&A', 
+    'Insider', 
+}
+
 assets_comdty = {
     'Comdty', 
     'WTI', 
@@ -183,6 +230,7 @@ assets_comdty = {
 
 
 assets_kr_factor = {
+    #'SEC', 
     'ESG_kr', 
     'LowVol_kr', 
     'Growth_kr', 
@@ -212,17 +260,19 @@ assets_kr_factor = {
     #'KSP', ##
     #'HighDvd_kr_2', 
     'K200L', 
+    #'K200inv', 
     #'LowVol_kr_3', 
     'MomentumGrowth_kr', 
     #'Pref_kr', ##
 }
 
-assets_global_factor = {
+
+assets_us_multiasset = {
     'Quality', 
     'Value', 
     'Growth', 
     'Momentum', 
-    'Momentum_EM', 
+    #'Momentum_EM', #이거 자체의 성과가 너무 최악
     'DvdApprec', 
     'HighDvd', 
     'HighBeta', 
@@ -237,45 +287,46 @@ assets_global_factor = {
     'HedgefundHold', 
     'Moat', 
     'LongShort', 
-    'ManagedFut', 
+    #'ManagedFut',  #이거 자체의 성과가 너무 별로임
     'M&A', 
     'ESG', 
     'IPO', 
     'Insider', 
     #'Insider2', 
     'SmallCap', 
-    'Xrate_Lowvol',       
-}
+    'Xrate_Lowvol',
 
+    #'Material', 
+    #'ConsumerDiscretionary', 
+    #'ConsumerStaples', 
+    #'Energy', 
+    #'Financial', 
+    #'Healthcare', 
+    #'Industrial', 
+    #'REIT', 
+    #'Tech',
+    #'Telcom', 
+    #'Utility',     
 
-assets_us_factor2 = {
-    'Quality', 
-    'Value', 
-    'Growth', 
-    'Momentum', 
-    #'Momentum_EM', 
-    'DvdApprec', 
-    'HighDvd', 
-    'HighBeta', 
-    'LowBeta', 
-    'LowVol', 
-    'HighFCF', 
-    #'Defensive', 
-    #'EW', 
-    #'130/30', 
-    #'Gender', 
-    #'CoveredCall', 
-    #'HedgefundHold', 
-    #'Moat', 
-    #'LongShort', 
-    #'ManagedFut', 
-    #'M&A', 
-    #'ESG', 
-    #'IPO', 
-    #'Insider', 
-    #'Insider2', 
-    'SmallCap', 
-    #'Xrate_Lowvol',       
+    #'BND_US_AGG', #
+    #'BND_US_Short',
+    'BND_US_Interm',
+    'BND_US_Long', #
+    'BND_US_TIP',
+    'BND_US_IG',
+    'BND_US_HY',
+    'BND_US_MBS',
+    'BND_US_Muni',
+    'BND_US_Bankloan',
+    'BND_US_CB',
+    'BND_US_HY_Muni',
+    'BND_US_Pref',
+
+    'REIT_US', 
+    'REIT_US_Mort',
+    
+    'USD_UP', 
+    'USD_DOWN', 
 }
 
 
@@ -365,29 +416,29 @@ assets_global_sector = {
 }
 
 
-assets_global_sector2 = {
-    #'IT_kr', 
-    #'Financial_kr',
-    #'Construction_kr', 
-    #'Industrial_kr', 
-    #'Heavy_kr', 
-    #'Material_kr', 
-    #'Healthcare_kr', 
-    #'Energy_kr', 
-    #'ConsumerDiscretionary_kr', 
-    #'ConsumerStaples_kr', 
+assets_global_gics = {
+    'IT_kr', 
+    'Financial_kr',
+    'Construction_kr', 
+    'Industrial_kr', 
+    'Heavy_kr', 
+    'Material_kr', 
+    'Healthcare_kr', 
+    'Energy_kr', 
+    'ConsumerDiscretionary_kr', 
+    'ConsumerStaples_kr', 
 
-    #'Material', 
-    #'ConsumerDiscretionary', 
-    #'ConsumerStaples', 
-    #'Energy', 
-    #'Financial', 
-    #'Healthcare', 
-    #'Industrial', 
-    #'REIT', 
-    #'Tech',
-    #'Telcom', 
-    #'Utility',     
+    'Material', 
+    'ConsumerDiscretionary', 
+    'ConsumerStaples', 
+    'Energy', 
+    'Financial', 
+    'Healthcare', 
+    'Industrial', 
+    'REIT', 
+    'Tech',
+    'Telcom', 
+    'Utility',     
 
     'Material_Global', 
     'ConsumerDiscretionary_Global', 
@@ -511,6 +562,7 @@ assets_global_eq = {
 mapper = {
     
     # Korea factors
+    'sec':                               'SEC', 
     'arirang_esg':                       'ESG_kr', 
     'arirang_lowvol':                    'LowVol_kr', 
     'arirang_mtum':                      'Growth_kr', 
