@@ -326,14 +326,15 @@ class BacktestComparator(BacktesterBase):
         #expr_mix = r_mix.ewm(halflife=60, min_periods=20).mean()
         
         dates_asof = list(self.backtests.values())[0].dates_asof
-        #alloc = 1.0 / std_mix.loc[dates_asof]
+        
         alloc = expr_mix.loc[dates_asof] / std_mix.loc[dates_asof]
+        alloc = 1.0 / std_mix.loc[dates_asof]
         alloc[alloc<0] = 0.0
         #set_trace()
-        alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(1/5)
-        #alloc[:] = 0.2
+        alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(1/6)
+        alloc[:] = 1/6
         #set_trace()
-        
+        self.alloc = alloc
         mixed = []
         
         for i_date, date in enumerate(self.cum.index):
