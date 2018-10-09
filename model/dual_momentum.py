@@ -39,6 +39,9 @@ class DualMomentumPort(Port):
             
         elif self.w_type=='iv':
             pos = self._get_pos_iv(selection, date)
+            
+        elif self.w_type=='sharpe':
+            pos = self._get_pos_sharpe(selection, sig, date, ranks)
     
         elif self.w_type=='eaa':
             pos = self._get_pos_eaa(sig, date)
@@ -53,6 +56,20 @@ class DualMomentumPort(Port):
         pos /= pos.sum()
         return pos.fillna(0)
 
+       
+    def _get_pos_sharpe(self, selection, sig, date, ranks):
+        #set_trace()
+        #sig_ = sig[selection!=0]
+        #sig_[sig_<=0] = sig_[sig_>0].mean()
+        
+        df = self.p_close[selection.index].loc[:date].iloc[-60:]
+        has_enough = pd.Series({k:df[k].nunique() for k in df}) > 60/2.0
+        std = df[has_enough.index[has_enough]].pct_change().std()
+        #rtn = df[has_enough.index[has_enough]].pct_change().mean()
+        #set_trace()
+        
+        return selection * (ranks**0.5) / std
+        #return selection * sig / std
     
     
     def _get_pos_sig(self, selection, sig):
