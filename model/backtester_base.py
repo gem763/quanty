@@ -316,24 +316,41 @@ class BacktestComparator(BacktesterBase):
         return cum#, stats
         
         
-    def mix(self):
+    def mix(self, mix_method, w_min=None):
         self.cum = self.cum.fillna(method='ffill')
         r_mix = self.cum[list(self.backtests.keys())].pct_change()
-        std_mix = r_mix.rolling(60, min_periods=20).std()
-        expr_mix = r_mix.rolling(60, min_periods=20).mean()
-        
-        #std_mix = r_mix.ewm(halflife=60, min_periods=20).std()
-        #expr_mix = r_mix.ewm(halflife=60, min_periods=20).mean()
-        
         dates_asof = list(self.backtests.values())[0].dates_asof
+        n_mix = len(r_mix.columns)
+        w_default = 1.0 / n_mix
         
-        alloc = expr_mix.loc[dates_asof] / std_mix.loc[dates_asof]
-        alloc = 1.0 / std_mix.loc[dates_asof]
-        alloc[alloc<0] = 0.0
-        #set_trace()
-        alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(1/6)
-        alloc[:] = 1/6
-        #set_trace()
+        if mix_method=='ew':
+            alloc = pd.DataFrame(index=dates_asof, columns=r_mix.columns)
+            alloc[:] = w_default
+        
+        elif mix_method=='risk_parity':
+            r_mix_rolling = r_mix.rolling(60, min_periods=20)
+            std_mix = r_mix_rolling.std()
+            alloc = 1.0 / std_mix.loc[dates_asof]
+            alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(w_default)
+        
+        elif mix_method=='sharpe_parity':
+            r_mix_rolling = r_mix.rolling(60, min_periods=20)
+            std_mix = r_mix_rolling.std()
+            expr_mix = r_mix_rolling.mean()
+            alloc = expr_mix.loc[dates_asof] / std_mix.loc[dates_asof]
+            alloc[alloc<0] = 0.0
+            alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(w_default)
+            
+        elif mix_method=='semi_sharpe_parity':
+            #r_mix_rolling = r_mix.ewm(halflife=60, min_periods=20)
+            r_mix_rolling = r_mix.rolling(60, min_periods=20)
+            std_mix = r_mix_rolling.std()
+            expr_mix = r_mix_rolling.mean()
+            alloc = expr_mix.loc[dates_asof] / std_mix.loc[dates_asof]
+            alloc[alloc<0] = 0.0
+            alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(w_default)            
+            alloc = alloc * (1 - w_min*n_mix) + w_min
+            
         self.alloc = alloc
         mixed = []
         
