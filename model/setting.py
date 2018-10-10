@@ -40,7 +40,7 @@ def base_params(db):
             'eaa_wc': 1.0, 
             'eaa_wr_bnd': 0.5, 
             'eaa_short_period': 20, 
-            'iv_period': 60, 
+            'iv_period': 250, 
             'w_max': 1.0, }, 
         'stats_opts': {
             'beta_to': 'ACWI', 
@@ -142,9 +142,20 @@ assets_global_multiasset = {
     'REIT_US_Mort',    
 }
 
+
+assets_jewish = {
+    'K200', 
+    'BND_US_Long_krw', 
+    'REIT_US', 
+}
+
+
 assets_region = {
     'ACWI', 
     'US_Total', 
+    #'US_lev'
+    #'US_Nasdaq', 
+    #'US_Nasdaq_lev', 
     'Global', 
     'EU', 
     'Developed', 
@@ -514,6 +525,9 @@ assets_fi = {
 }
 
 assets_global_eq = {
+    #'US_Nasdaq', 
+    #'US_lev', 
+    #'US_Nasdaq_lev', 
     'US',
     'Canada',
     'Mexico',
@@ -714,6 +728,9 @@ mapper = {
     
     # Global conturies
     'spy_spdr_us':                       'US', 
+    'sso_proshares_us_lev':              'US_lev', 
+    'qqq_invesco_us_nasdaq':             'US_Nasdaq', 
+    'qld_proshares_us_nasdaq_lev':       'US_Nasdaq_lev', 
     'ewc_ishares_canada':                'Canada', 
     'eww_ishares_mexico':                'Mexico', 
     'epu_ishares_peru':                  'Peru', 
@@ -859,5 +876,8 @@ mapper = {
     'bkf_ishares_bric':                  'BRIC', 
     'fm_ishares_frontier':               'Frontier', 
     'ilf_ishares_latam':                 'Latam', 
+    
+    # Multiasset
+    'aom_ishares_global_alloc':          'Global_alloc', 
 
 }

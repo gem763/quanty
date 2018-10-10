@@ -40,6 +40,20 @@ class DualMomentumPort(Port):
         elif self.w_type=='iv':
             pos = self._get_pos_iv(selection, date)
             
+        elif self.w_type=='valuation':
+            #set_trace()
+            val = pd.read_pickle('valuation.pkl').pe_fwd.unstack().loc[:date].iloc[-250:]
+            z_val = -(val.iloc[-1]-val.mean()) / val.std()
+            z_val_ranks = z_val.to_frame().rank(ascending=False, na_option='bottom')[0]
+            #selection = z_val_ranks.copy()
+            #selection[:] = 0
+            #selection[z_val_ranks<11] = 1
+            #selection.loc['BND_US_Long'] = 0
+            #selection.loc['BND_US_Tbill'] = 0
+            
+            #z_val[z_val<0] = 0
+            pos = selection #* z_val * (ranks**0.5)
+            
         elif self.w_type=='sharpe':
             pos = self._get_pos_sharpe(selection, sig, date, ranks)
     
@@ -58,17 +72,17 @@ class DualMomentumPort(Port):
 
        
     def _get_pos_sharpe(self, selection, sig, date, ranks):
-        #set_trace()
-        #sig_ = sig[selection!=0]
-        #sig_[sig_<=0] = sig_[sig_>0].mean()
-        
         df = self.p_close[selection.index].loc[:date].iloc[-60:]
         has_enough = pd.Series({k:df[k].nunique() for k in df}) > 60/2.0
         std = df[has_enough.index[has_enough]].pct_change().std()
+        #set_trace()
+        std_rank = std.to_frame().rank(ascending=False, na_option='bottom')[0]
         #rtn = df[has_enough.index[has_enough]].pct_change().mean()
         #set_trace()
         
-        return selection * (ranks**0.5) / std
+        #return selection * sig
+        return selection * ((ranks/std_rank)**1) / std
+        #return selection * (ranks**0.5) / std
         #return selection * sig / std
     
     
