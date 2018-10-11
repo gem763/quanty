@@ -109,6 +109,7 @@ class Backtester(BacktesterBase):
         #hold_[p_thres1<p_close_] = 1.0
         hold_[(p_rentry_<p_close_) & (p_close_<=p_losscut_)] = 0.5
         hold_[p_close_<=p_rentry_] = 1.0
+        #hold_[(p_rentry_<p_close_) & (p_close_<=p_losscut_)] = 0.5
         hold_[p_profitake_<=p_close_] = 0.0
 
         hold_ = hold_.fillna(method='ffill').fillna(1.0).shift()
@@ -180,7 +181,7 @@ class Backtester(BacktesterBase):
         # 이게 있으면, 리밸일마다 기록되는 것들(eq_value, hold 등)이 기록이 안되는 경우가 있다. 
         #if weight_.sub(self._weight_last()[1], fill_value=0).abs().sum()==0:
         #    return
-        
+
         i_date_trade = self.dates.get_loc(date) + self.trade_delay
         
         if i_date_trade > len(self.dates)-1:

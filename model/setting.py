@@ -538,11 +538,12 @@ assets_global_eq = {
     'Spain',
     'Germany',
     'Italy',
-    'Egypt',
+    #'Egypt',
     'India',
     'Africa',
     'SouthAfrica',
     'Russia',
+    #'K200L', 
     'Korea',
     'Japan',
     'China',
@@ -559,7 +560,7 @@ assets_global_eq = {
     'Taiwan',
     'Vietnam',
     'Poland',
-    'NewZealand',
+    #'NewZealand',
     'Greece',
     'Norway',
     'Indonesia',
@@ -568,8 +569,11 @@ assets_global_eq = {
     'Turkey',
     'Chile',
     'Colombia',
-    'Saudi',
+    #'Saudi',
+
+    #'Comdty', 
     #'BND_US_Long', 
+    'REIT_US', 
 }
 
 

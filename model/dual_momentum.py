@@ -4,6 +4,7 @@ import time
 from IPython.core.debugger import set_trace
 from pandas.tseries.offsets import Day
 from .portfolio import Port
+from .pricing import PriceModeler
 
 
 
@@ -40,19 +41,54 @@ class DualMomentumPort(Port):
         elif self.w_type=='iv':
             pos = self._get_pos_iv(selection, date)
             
+        elif self.w_type=='pca':
+            p_ = self.p_close
+            p_ = p_.loc[:date].iloc[-750:].dropna(axis=1, how='any')
+            pm = PriceModeler(p_)
+            #set_trace()
+            
+            #disloc = pm.dislocation(method='pct_rank').iloc[-1]#.mean()
+            #disloc_ranks = disloc.rank()
+            #selection2 = disloc.copy()
+            #selection2[:] = 0
+            #selection2[disloc_ranks<11] = 1
+            #selection2 /= (disloc_ranks**0.5)
+            
+            #set_trace()
+            
+            proj = pm.projection(20, what='model').iloc[-1] #.iloc[-60:].mean()
+            #std = pm.log_p_model.diff().iloc[-20:].std()
+            #proj /=std
+            #proj[proj<=0] = np.nan
+            proj_ranks = proj.rank(ascending=False)#, na_option='bottom')
+            #selection2 = proj.copy()
+            #selection2[:] = 0
+            #selection2[(proj_ranks<self.n_picks+1) & (proj>0)] = 1
+            #selection2[(proj_ranks<self.n_picks+1)] = 1
+            #selection2 /= proj_ranks
+            
+            pos = selection * (ranks**0.5) / (proj_ranks**1)
+            #pos = selection / (disloc+1)
+            #set_trace()
+            #pos = selection2 + selection*(ranks**0.5)
+            
+            
         elif self.w_type=='valuation':
             #set_trace()
-            val = pd.read_pickle('valuation.pkl').pe_fwd.unstack().loc[:date].iloc[-250:]
-            z_val = -(val.iloc[-1]-val.mean()) / val.std()
+            val = pd.read_pickle('valuation.pkl').pe_fwd.unstack().loc[:date].iloc[-60:]
+            z_val = -(val.iloc[-20:].mean()-val.mean()) / val.std()
+            z_val[self.p_close.loc[date].isnull()] = np.nan
+            
             z_val_ranks = z_val.to_frame().rank(ascending=False, na_option='bottom')[0]
             #selection = z_val_ranks.copy()
             #selection[:] = 0
-            #selection[z_val_ranks<11] = 1
+            #selection[(z_val_ranks<11)&(self.p_close.loc[date].notnull())] = 1
+            
             #selection.loc['BND_US_Long'] = 0
             #selection.loc['BND_US_Tbill'] = 0
             
             #z_val[z_val<0] = 0
-            pos = selection #* z_val * (ranks**0.5)
+            pos = selection / z_val_ranks #* (ranks**0.5)
             
         elif self.w_type=='sharpe':
             pos = self._get_pos_sharpe(selection, sig, date, ranks)
