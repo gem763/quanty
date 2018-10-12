@@ -524,10 +524,24 @@ assets_fi = {
     #'KTB10YL', 
 }
 
+
+assets_spy_tlt = {
+    'US', 
+    'BND_US_Long', 
+}
+
+
 assets_global_eq = {
     #'US_Nasdaq', 
     #'US_lev', 
     #'US_Nasdaq_lev', 
+       
+    'Quality', 
+    'Momentum', 
+    'Value', 
+    'LowVol', 
+    'HighDvd', 
+    
     'US',
     'Canada',
     'Mexico',
@@ -538,13 +552,13 @@ assets_global_eq = {
     'Spain',
     'Germany',
     'Italy',
-    #'Egypt',
+    'Egypt',
     'India',
     'Africa',
     'SouthAfrica',
     'Russia',
-    #'K200L', 
-    'Korea',
+    #'K200', 
+    'Korea',    
     'Japan',
     'China',
     'Singapore',
@@ -560,7 +574,7 @@ assets_global_eq = {
     'Taiwan',
     'Vietnam',
     'Poland',
-    #'NewZealand',
+    'NewZealand',
     'Greece',
     'Norway',
     'Indonesia',
@@ -569,11 +583,11 @@ assets_global_eq = {
     'Turkey',
     'Chile',
     'Colombia',
-    #'Saudi',
+    'Saudi',
 
     #'Comdty', 
     #'BND_US_Long', 
-    'REIT_US', 
+    #'REIT_US', 
 }
 
 

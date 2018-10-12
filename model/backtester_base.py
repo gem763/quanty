@@ -4,6 +4,7 @@ import time
 from collections import namedtuple, OrderedDict
 from pandas.tseries.offsets import Day
 from IPython.core.debugger import set_trace
+from tqdm import tqdm, tqdm_notebook
 
 from .plotter import Plotter as pltr
 from ..model import evaluator as ev
@@ -104,6 +105,12 @@ class BacktesterBase(object):
         elif self.trade_tol=='buyLow_sellHigh':
             p_buy = p_close_low
             p_sell = p_close_high
+            
+        if 'Saudi' in p_close:
+            p_close.loc[:'2014-08-28','Saudi'] = 0
+            
+        if 'NewZealand' in p_close:
+            p_close.loc[:'2010-09-30', 'NewZealand'] = 0
             
         return p_close, p_buy, p_sell, p_close_high, p_close_low, p_close.pct_change()    
                
@@ -316,11 +323,12 @@ class BacktestComparator(BacktesterBase):
         return cum#, stats
         
         
-    def mix(self, mix_method, w_min=None):
+    def mix(self, mix_method, w_min=None, n_mix=None):
+        #set_trace()
         self.cum = self.cum.fillna(method='ffill')
         r_mix = self.cum[list(self.backtests.keys())].pct_change()
         dates_asof = list(self.backtests.values())[0].dates_asof
-        n_mix = len(r_mix.columns)
+        if n_mix is None: n_mix = len(r_mix.columns)
         w_default = 1.0 / n_mix
         
         if mix_method=='ew':
@@ -334,10 +342,15 @@ class BacktestComparator(BacktesterBase):
             alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(w_default)
         
         elif mix_method=='sharpe_parity':
-            r_mix_rolling = r_mix.rolling(60, min_periods=20)
+            r_mix_rolling = r_mix.rolling(20, min_periods=20)
             std_mix = r_mix_rolling.std()
             expr_mix = r_mix_rolling.mean()
             alloc = expr_mix.loc[dates_asof] / std_mix.loc[dates_asof]
+                        
+            #alloc_rank = alloc.rank(axis=1, ascending=False, na_option='bottom')
+            #alloc_rank.iloc[0] = 1
+            #alloc[(alloc<0) & (alloc_rank>n_mix)] = 0.0
+            #alloc[alloc_rank>n_mix] = 0.0
             alloc[alloc<0] = 0.0
             alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(w_default)
             
@@ -353,8 +366,9 @@ class BacktestComparator(BacktesterBase):
             
         self.alloc = alloc
         mixed = []
+        #set_trace()
         
-        for i_date, date in enumerate(self.cum.index):
+        for i_date, date in tqdm_notebook(enumerate(self.cum.index)):
             
             if i_date==0:
                 cum_mix_ = alloc.loc[date]
@@ -368,7 +382,8 @@ class BacktestComparator(BacktesterBase):
                 
             cum_mix_['sum'] = cum_mix_.sum()
             mixed.append(cum_mix_)
-            
+        
+        #set_trace()
         mixed = pd.DataFrame(mixed, index=self.cum.index)
         self.cum['mixed'] = mixed['sum']
         #self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)

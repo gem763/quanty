@@ -36,7 +36,7 @@ class DualMomentumPort(Port):
             pos = selection * (ranks**0.5)
             
         elif self.w_type=='sig':
-            pos = self._get_post_sig(selection, sig)
+            pos = self._get_pos_sig(selection, sig)
             
         elif self.w_type=='iv':
             pos = self._get_pos_iv(selection, date)
