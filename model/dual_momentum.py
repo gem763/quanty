@@ -5,7 +5,7 @@ from IPython.core.debugger import set_trace
 from pandas.tseries.offsets import Day
 from .portfolio import Port
 from .pricing import PriceModeler
-
+from scipy.optimize import minimize
 
 
 class DualMomentumPort(Port):
@@ -102,10 +102,70 @@ class DualMomentumPort(Port):
         elif self.w_type=='eaa_optima': 
             pos = self._get_pos_eaa_optima(selection, sig, date)
 
+        elif self.w_type=='adaptive':
+            pos = self._get_pos_adaptive2(selection, date, 60)
+            #pos += 2*self._get_pos_adaptive2(selection, date, 40)
+            #pos += 3*self._get_pos_adaptive2(selection, date, 60)
+            #pos /= 3.0
+            #set_trace()
+            
         # Normalize
+        #if date==pd.Timestamp('2015-08-31'): set_trace()
         pos /= pos.sum()
         return pos.fillna(0)
 
+    
+    def _get_pos_adaptive(self, selection, date):
+        
+        assets = selection[selection!=0].index.tolist()
+        #assets = list(set(assets+['BND_US_Long']))
+        n_assets = len(assets)
+        if n_assets<=1: return selection
+        
+        vol_factor = 2
+        rt = self.p_close[assets].loc[:date].iloc[-60:].pct_change()
+        expr = rt.mean()
+        cov = rt.cov()
+        obj = lambda w: -w.dot(expr) / ((w.dot(cov.dot(w))**0.5)**vol_factor)
+        iv = [1.0/n_assets] * n_assets
+        cons_budget_min = [{'type':'ineq', 'fun':lambda w: w.sum() - 0.0}]
+        cons_budget_max = [{'type':'ineq', 'fun':lambda w: 1.0 - w.sum()}]
+        cons_budget = [{'type':'eq', 'fun':lambda w: 1.0 - w.sum()}]
+        cons = cons_budget#_min + cons_budget_max
+        bnds = list(zip([0.0]*n_assets, [1.0]*n_assets))
+
+        result = minimize(obj, iv, method='SLSQP', bounds=bnds, constraints=cons)#, options=opt)
+        return pd.Series(result.x, index=rt.columns)
+
+    
+    def _get_pos_adaptive2(self, selection, date, term):
+        assets = list(self.assets)
+        assets = selection[selection!=0].index.tolist()
+        
+        vol_factor = 2
+        rt = self.p_close[assets].loc[:date].iloc[-term:].pct_change().dropna(axis=1, how='all')
+        n_assets = len(rt.columns) 
+        
+        if n_assets<=1: return selection
+        
+        expr = rt.mean()
+        cov = rt.cov()
+        
+        obj = lambda w: -w.dot(expr) / ((w.dot(cov.dot(w))**0.5)**vol_factor)
+        iv = [1/n_assets] * n_assets
+        cons_budget_min = [{'type':'ineq', 'fun':lambda w: w.sum() - 0.5}]
+        cons_budget_max = [{'type':'ineq', 'fun':lambda w: 1.0 - w.sum()}]
+        cons_budget = [{'type':'eq', 'fun':lambda w: 1.0 - w.sum()}]
+        cons = cons_budget#_min + cons_budget_max
+        bnds = list(zip([0.0]*n_assets, [1.0]*n_assets))
+
+        #if date==pd.Timestamp('2011-04-29'): set_trace()
+        result = minimize(obj, iv, method='SLSQP', bounds=bnds, constraints=cons)#, options=opt)
+        if result.success: 
+            return pd.Series(result.x, index=rt.columns) * selection
+        else:
+            return pd.Series(iv, index=rt.columns) * selection
+    
        
     def _get_pos_sharpe(self, selection, sig, date, ranks):
         df = self.p_close[selection.index].loc[:date].iloc[-60:]

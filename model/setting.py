@@ -143,12 +143,6 @@ assets_global_multiasset = {
 }
 
 
-assets_jewish = {
-    'K200', 
-    'BND_US_Long_krw', 
-    'REIT_US', 
-}
-
 
 assets_region = {
     'ACWI', 
@@ -277,6 +271,36 @@ assets_kr_factor = {
     #'Pref_kr', ##
 }
 
+
+assets_us_factor = {
+    'Quality', 
+    'Value', 
+    'Growth', 
+    'Momentum', 
+    #'Momentum_EM', #이거 자체의 성과가 너무 최악
+    'DvdApprec', 
+    'HighDvd', 
+    'HighBeta', 
+    'LowBeta', 
+    'LowVol', 
+    'HighFCF', 
+    'Defensive', 
+    'EW', 
+    '130/30', 
+    'Gender', 
+    'CoveredCall', 
+    'HedgefundHold', 
+    'Moat', 
+    'LongShort', 
+    #'ManagedFut',  #이거 자체의 성과가 너무 별로임
+    'M&A', 
+    'ESG', 
+    'IPO', 
+    'Insider', 
+    #'Insider2', 
+    'SmallCap', 
+    'Xrate_Lowvol',
+}
 
 assets_us_multiasset = {
     'Quality', 
@@ -493,6 +517,26 @@ assets_us_sector = {
     'Utility', 
 }
 
+
+assets_fi2 = {
+    'BND_US_Long',
+    'BND_US_TIP',
+    'BND_US_IG',
+    'BND_US_HY',
+    'BND_US_MBS',
+    'BND_US_Muni',
+    'BND_US_Bankloan',
+    'BND_US_CB',
+    'BND_US_HY_Muni',
+    'BND_US_Pref',
+    'BND_DevIG_loc',
+    'BND_DevHY_loc',
+    #'BND_EmHy_usd'
+    'BND_ChinaCredit_loc', 
+    'KTB10YL', 
+}
+
+
 assets_fi = {
     #'BND_US_AGG', #
     #'BND_US_Short',
@@ -526,8 +570,9 @@ assets_fi = {
 
 
 assets_spy_tlt = {
-    'US', 
-    'BND_US_Long', 
+    'K200', 
+    'BND_US_Long_krw', 
+    'REIT_US',
 }
 
 
@@ -536,12 +581,6 @@ assets_global_eq = {
     #'US_lev', 
     #'US_Nasdaq_lev', 
        
-    'Quality', 
-    'Momentum', 
-    'Value', 
-    'LowVol', 
-    'HighDvd', 
-    
     'US',
     'Canada',
     'Mexico',
@@ -586,8 +625,9 @@ assets_global_eq = {
     'Saudi',
 
     #'Comdty', 
-    #'BND_US_Long', 
-    #'REIT_US', 
+    'BND_US_Long', 
+    'KTB10YL',
+    'REIT_US', 
 }
 
 
