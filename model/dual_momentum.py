@@ -156,7 +156,8 @@ class DualMomentumPort(Port):
         cons_budget_min = [{'type':'ineq', 'fun':lambda w: w.sum() - 0.5}]
         cons_budget_max = [{'type':'ineq', 'fun':lambda w: 1.0 - w.sum()}]
         cons_budget = [{'type':'eq', 'fun':lambda w: 1.0 - w.sum()}]
-        cons = cons_budget#_min + cons_budget_max
+        asset_limit = [{'type':'eq', 'fun':lambda w: 5 - sum(w!=0)}]
+        cons = cons_budget# + asset_limit#_min + cons_budget_max + asset_limit
         bnds = list(zip([0.0]*n_assets, [1.0]*n_assets))
 
         #if date==pd.Timestamp('2011-04-29'): set_trace()

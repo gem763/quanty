@@ -577,10 +577,6 @@ assets_spy_tlt = {
 
 
 assets_global_eq = {
-    #'US_Nasdaq', 
-    #'US_lev', 
-    #'US_Nasdaq_lev', 
-       
     'US',
     'Canada',
     'Mexico',
@@ -596,7 +592,6 @@ assets_global_eq = {
     'Africa',
     'SouthAfrica',
     'Russia',
-    #'K200', 
     'Korea',    
     'Japan',
     'China',
@@ -624,10 +619,72 @@ assets_global_eq = {
     'Colombia',
     'Saudi',
 
-    #'Comdty', 
     'BND_US_Long', 
     'KTB10YL',
     'REIT_US', 
+}
+
+
+
+assets_global_eq2 = {
+    #'US_lev',
+    'US_Nasdaq',
+    'Canada',
+    'Mexico',
+    'Peru',
+    'Brazil',
+    'Argentina',
+    'UK',
+    'Spain',
+    'Germany',
+    'Italy',
+    'Egypt',
+    'India',
+    'Africa',
+    'SouthAfrica',
+    'Russia',
+    'Korea',    
+    'Japan',
+    'China',
+    'China_csi300',
+    'China_largecap',
+    'Singapore',
+    'Australia',
+    'Austria',
+    'Belgium',
+    'France',
+    'HongKong',
+    'Malaysia',
+    'Netherland',
+    'Sweden',
+    'Switzerland',
+    'Taiwan',
+    'Vietnam',
+    'Poland',
+    'NewZealand',
+    'Greece',
+    'Norway',
+    'Indonesia',
+    #'Indonesia2',
+    'Philip',
+    'Thailand',
+    'Turkey',
+    'Chile',
+    'Colombia',
+    'Saudi',
+    'Ireland',
+    'Israel',
+    #'India_earning',
+
+    
+    'Frontier',
+    #'Frontier2',
+    'MiddleEast',
+    
+    #'BND_US_Long', 
+    #'BND_US_Long_3x',
+    #'KTB10YL',
+    #'REIT_US', 
 }
 
 
@@ -793,16 +850,16 @@ mapper = {
     'eww_ishares_mexico':                'Mexico', 
     'epu_ishares_peru':                  'Peru', 
     'ewz_ishares_brazil':                'Brazil', 
-    'argt_globalx_argentina':            'Argentina', 
+    'argt_globalx_argentina':            'Argentina', #
     'ewu_ishares_uk':                    'UK', 
     'ewp_ishares_spain':                 'Spain', 
     'ewg_ishares_germany':               'Germany', 
     'ewi_ishares_italy':                 'Italy', 
     'egpt_vaneck_egypt':                 'Egypt', 
-    'inda_ishares_india':                'India', 
+    'inda_ishares_india':                'India', #
     'afk_vaneck_africa':                 'Africa', 
     'eza_ishares_south_africa':          'SouthAfrica', 
-    'rsz_vaneck_russia':                 'Russia', 
+    'rsx_vaneck_russia':                 'Russia', 
     'ewy_ishares_skorea':                'Korea', 
     'ewj_ishares_jp':                    'Japan', 
     'mchi_ishares_china':                'China', 
@@ -828,7 +885,15 @@ mapper = {
     'tur_ishares_turkey':                'Turkey', 
     'ech_ishares_chile':                 'Chile', 
     'gxg_globalx_colombia':              'Colombia', 
-    'ksa_ishares_saudi':                 'Saudi', 
+    'ksa_ishares_saudi':                 'Saudi', #
+    
+    'ashr_deutsche_china_csi300':        'China_csi300',
+    'eirl_ishares_ireland':              'Ireland',
+    'eis_ishares_israel':                'Israel',
+    'epi_wisdomtree_india':              'India_earning', # 요건 inda와 거의 동일
+    'fxi_ishares_china_largecap':        'China_largecap',
+    'idx_vaneck_indonesia':              'Indonesia2',
+    
 
 
     # US factors
@@ -899,11 +964,13 @@ mapper = {
     'cwb_spdr_us_cb':                    'BND_US_CB', 
     'hyd_vaneck_us_hy_muni':             'BND_US_HY_Muni', 
     'pff_ishares_us_pref':               'BND_US_Pref', 
-
+    
     'shy_ishares_us_bd_short_krw':       'BND_US_Short_krw', 
     'ief_ishares_us_bd_interm_krw':      'BND_US_Interm_krw', 
     'tlt_ishares_us_bd_long_krw':        'BND_US_Long_krw', 
 
+    'tmf_direxion_us_bd_long_3x':        'BND_US_Long_3x',
+    
 
     # Global bonds
     'bwx_spdr_global_sov_loc':           'BND_GlobalSov_loc', 
@@ -932,8 +999,13 @@ mapper = {
     'eem_ishares_em':                    'EM', 
     'aaxj_ishares_asia_xjp':             'Asia_xJp', 
     'bkf_ishares_bric':                  'BRIC', 
-    'fm_ishares_frontier':               'Frontier', 
-    'ilf_ishares_latam':                 'Latam', 
+    'fm_ishares_frontier':               'Frontier', #
+    'ilf_ishares_latam':                 'Latam',
+    
+    'frn_invesco_frontier':              'Frontier2',
+    #'gaf_spdr_middle_east_africa':       'MiddleEast_Africa',
+    'gulf_wisdomtree_middle_east':       'MiddleEast',
+    
     
     # Multiasset
     'aom_ishares_global_alloc':          'Global_alloc', 

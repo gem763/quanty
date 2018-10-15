@@ -107,10 +107,10 @@ class BacktesterBase(object):
             p_sell = p_close_high
             
         if 'Saudi' in p_close:
-            p_close.loc[:'2014-08-28','Saudi'] = 0
+            p_close.loc[:'2014-08-28','Saudi'] = np.nan
             
         if 'NewZealand' in p_close:
-            p_close.loc[:'2010-09-30', 'NewZealand'] = 0
+            p_close.loc[:'2010-09-30', 'NewZealand'] = np.nan
             
         return p_close, p_buy, p_sell, p_close_high, p_close_low, p_close.pct_change()    
                
