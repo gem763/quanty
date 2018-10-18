@@ -140,7 +140,7 @@ class DualMomentumPort(Port):
     
     def _get_pos_adaptive2(self, selection, date, term):
         assets = list(self.assets)
-        assets = selection[selection!=0].index.tolist()
+        #assets = selection[selection!=0].index.tolist()
         
         vol_factor = 2
         rt = self.p_close[assets].loc[:date].iloc[-term:].pct_change().dropna(axis=1, how='all')
@@ -163,9 +163,9 @@ class DualMomentumPort(Port):
         #if date==pd.Timestamp('2011-04-29'): set_trace()
         result = minimize(obj, iv, method='SLSQP', bounds=bnds, constraints=cons)#, options=opt)
         if result.success: 
-            return pd.Series(result.x, index=rt.columns) * selection
+            return pd.Series(result.x, index=rt.columns) #* selection
         else:
-            return pd.Series(iv, index=rt.columns) * selection
+            return pd.Series(iv, index=rt.columns) #* selection
     
        
     def _get_pos_sharpe(self, selection, sig, date, ranks):

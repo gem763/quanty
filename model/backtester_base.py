@@ -244,7 +244,7 @@ class BacktesterBase(object):
                 'consistency': 'Consistency (%)',
             }
             
-            pltr.plot_stats(self.stats, strats, items, **params)
+            pltr.plot_stats(self.get_stats(), strats, items, **params)
         
         elif style=='normal':
             items = {
@@ -259,7 +259,7 @@ class BacktesterBase(object):
                 'consistency': 'Consistency (%)',
             }
             
-            pltr.plot_stats(self.stats, strats, items, **params)
+            pltr.plot_stats(self.get_stats(), strats, items, **params)
             
         elif style=='simple':
             items = {
@@ -342,7 +342,7 @@ class BacktestComparator(BacktesterBase):
             alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(w_default)
         
         elif mix_method=='sharpe_parity':
-            r_mix_rolling = r_mix.rolling(20, min_periods=20)
+            r_mix_rolling = r_mix.rolling(60, min_periods=20)
             std_mix = r_mix_rolling.std()
             expr_mix = r_mix_rolling.mean()
             alloc = expr_mix.loc[dates_asof] / std_mix.loc[dates_asof]
