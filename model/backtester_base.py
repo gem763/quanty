@@ -219,11 +219,11 @@ class BacktesterBase(object):
         
         
     def plot_cum_yearly(self, strats, **params): 
-        pltr.plot_cum_yearly(self.cum[strats], **params)
+        return pltr.plot_cum_yearly(self.cum[strats], **params)
 
         
     def plot_cum_multi_periods(self, strats, **params): 
-        pltr.plot_cum_multi_periods(self.cum[strats], **params)
+        return pltr.plot_cum_multi_periods(self.cum[strats], **params)
         
         
     def plot_turnover(self):
@@ -231,7 +231,7 @@ class BacktesterBase(object):
         
         
     def plot_weight(self, rng): 
-        pltr.plot_weight(self.weight, rng, self.supporter, self.cash_equiv)
+        return pltr.plot_weight(self.weight, rng, self.supporter, self.cash_equiv)
         
         
     def plot_stats(self, strats, style=None, **params):
@@ -251,7 +251,7 @@ class BacktesterBase(object):
                 'consistency': 'Consistency (%)',
             }
             
-            pltr.plot_stats(self.get_stats(), strats, items, **params)
+            return pltr.plot_stats(self.get_stats(), strats, items, **params)
         
         elif style=='normal':
             items = {
@@ -266,7 +266,7 @@ class BacktesterBase(object):
                 'consistency': 'Consistency (%)',
             }
             
-            pltr.plot_stats(self.get_stats(), strats, items, **params)
+            return pltr.plot_stats(self.get_stats(), strats, items, **params)
             
         elif style=='simple':
             items = {
@@ -276,11 +276,11 @@ class BacktesterBase(object):
                 'mdd': 'MDD (%)', 
             }          
         
-            pltr.plot_stats(self.stats, strats, items, ncols=4, **params)
+            return pltr.plot_stats(self.stats, strats, items, ncols=4, **params)
         
         
     def plot_profile(self, strats, **params):
-        pltr.plot_profile(self.stats, strats, **params)
+        return pltr.plot_profile(self.stats, strats, **params)
         
         
     def plot_dist(self, strats, **params):
@@ -290,7 +290,7 @@ class BacktesterBase(object):
             ev._sharpe: 'Sharpe (Rolling1Y)', 
         }
         
-        pltr.plot_dist(self.cum, strats, items, **params)
+        return pltr.plot_dist(self.cum, strats, items, **params)
         
         
     def plot_contr_cum(self, **params):

@@ -174,6 +174,7 @@ class Plotter(object):
 
         axes[0].legend(names, bbox_to_anchor=(0, 1.2, nWidth, 0), ncol=len(names), loc=3);
         
+        return axes
         
 
     @classmethod
@@ -213,6 +214,8 @@ class Plotter(object):
             names = cum.columns #strats
 
         axes[0].legend(names, bbox_to_anchor=(0, 1.2, nWidth, 0), ncol=len(names), loc=3);
+        
+        return axes
 
 
     @classmethod
@@ -220,6 +223,7 @@ class Plotter(object):
         ax = turnover.plot(ylim=(0,10), color='k', xlim=(turnover.index[0], turnover.index[-1]))
         ax.set_title('Turnover ratio (12M)', fontsize=15, weight='bold')
         ax.axhline(turnover.mean(), color='k', linestyle='--', linewidth=1);
+        return ax
 
 
     @classmethod
@@ -276,6 +280,8 @@ class Plotter(object):
         fig_h = len(weight__)/3.0
         ax = weight__.plot.barh(stacked=True, figsize=(10,fig_h), colormap='tab20c', width=bar_w, xlim=(0,1))
         ax.legend(loc=1, bbox_to_anchor=(1.25, 1));
+        
+        return ax
 
 
     @classmethod
@@ -311,6 +317,8 @@ class Plotter(object):
 
         plt.subplots_adjust(hspace=hspace)
         #fig.suptitle('Statistics', fontsize=15, weight='bold', y=0.94)
+        
+        return ax
 
 
     @classmethod
@@ -370,6 +378,8 @@ class Plotter(object):
 
         ax.set_xlabel('Volatility (%)', size=15) # 연변동성
         ax.set_ylabel('CAGR (%)', size=15)
+        
+        return ax
 
 
     @classmethod
@@ -402,6 +412,8 @@ class Plotter(object):
 
             #ax[0].set_title(label_, size=15)
             ax[-1].set_xlabel(label_, size=15)
+            
+        return axes
 
             
 
