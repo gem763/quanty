@@ -3,12 +3,19 @@ import pandas as pd
 import time
 from collections import namedtuple, OrderedDict
 from pandas.tseries.offsets import Day
-from IPython.core.debugger import set_trace
 from tqdm import tqdm, tqdm_notebook
+from IPython.core.debugger import set_trace
+from IPython import get_ipython
 
 from .plotter import Plotter as pltr
 from ..model import evaluator as ev
 
+
+if 'zmqshell' in str(type(get_ipython())):
+    prg = tqdm_notebook
+    
+else:
+    prg = tqdm
 
             
 class BacktesterBase(object):
@@ -193,7 +200,7 @@ class BacktesterBase(object):
     
     
     def plot_cum(self, strats, **params):
-        pltr.plot_cum(self.cum, strats, **params)
+        return pltr.plot_cum(self.cum, strats, **params)
         
         
     def plot_cum_te(self, strats, bm, te_target, **params):

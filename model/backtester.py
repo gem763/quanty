@@ -3,14 +3,21 @@ import numpy as np
 import itertools
 import time
 from pandas.tseries.offsets import Day
-from IPython.core.debugger import set_trace
 from tqdm import tqdm, tqdm_notebook
+from IPython.core.debugger import set_trace
+from IPython import get_ipython
 
 # Custom modules
 from .dual_momentum import DualMomentumPort
 from .backtester_base import BacktesterBase
 from ..model import evaluator as ev
 
+
+if 'zmqshell' in str(type(get_ipython())):
+    prg = tqdm_notebook
+    
+else:
+    prg = tqdm
 
 
 class Backtester(BacktesterBase):
@@ -222,7 +229,7 @@ class Backtester(BacktesterBase):
     
     
     def _run(self):
-        for date in tqdm_notebook(self.dates_asof):
+        for date in prg(self.dates_asof):
             #if date==pd.Timestamp('2008-10-31'): set_trace()
             weight_ = self._positionize(date)
             self._rebalance(date, weight_)

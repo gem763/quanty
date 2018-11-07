@@ -37,6 +37,7 @@ class Plotter(object):
         if end is not None:
             prices_ = prices_.loc[:end]
         
+        fig = plt.figure()
         ax = prices_.plot(
             figsize=(7,5), 
             logy=logy, color=color, style=style, 
@@ -50,6 +51,8 @@ class Plotter(object):
         legend_fsize = 12
         if names: ax.legend(names, fontsize=legend_fsize)
         else: ax.legend(fontsize=legend_fsize)
+            
+        return ax
 
             
     @classmethod

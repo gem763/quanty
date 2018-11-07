@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from ..model import evaluator as ev
 from IPython.core.debugger import set_trace
-from tqdm import tqdm_notebook
 import time
 
 
