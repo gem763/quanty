@@ -82,6 +82,7 @@ class BacktesterBase(object):
         trade_assets = dict(self.trade_assets)
 
         if len(trade_assets)!=0:
+            #set_trace()
             assets_all.update(set.union(*[set(trade_assets[k].keys()) for k in trade_assets.keys() if k in assets_all]))
         
         return assets_all        
@@ -368,8 +369,20 @@ class BacktestComparator(BacktesterBase):
             expr_mix = r_mix_rolling.mean()
             alloc = expr_mix.loc[dates_asof] / std_mix.loc[dates_asof]
             alloc[alloc<0] = 0.0
-            alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(w_default)            
-            alloc = alloc * (1 - w_min*n_mix) + w_min
+            alloc = alloc.div(alloc.sum(axis=1), axis=0).fillna(w_default)
+            #set_trace()
+            
+            if type(w_min)==dict:
+                w_min_sum = sum(w_min.values())
+                alloc_min = alloc.copy()
+                alloc_min[:] = 0
+                for k,v in w_min.items():
+                    alloc_min[k] = v
+                    
+                alloc = alloc * (1 - w_min_sum) + alloc_min
+            
+            else:
+                alloc = alloc * (1 - w_min*n_mix) + w_min
             
         self.alloc = alloc
         mixed = []
