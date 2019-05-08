@@ -625,6 +625,17 @@ assets_fi = {
 }
 
 
+assets_fi3 = {
+    'BND_US_Short',
+    'BND_US_IG',
+    'BND_US_HY',
+
+    'BND_DevFloat_usd',
+    'BND_DevIG_loc',
+    'BND_DevHY_loc',
+}
+
+
 assets_spy_tlt = {
     'K200', 
     'BND_US_Long_krw', 
@@ -645,7 +656,14 @@ assets_global_factor = {
     'HighFCF', 
     'Defensive', 
     'Insider', 
-    'SmallCap', 
+    'SmallCap',
+    ##
+    'DvdApprec', ##
+    'EW',
+    'Gender',
+    'M&A',
+    'ESG',
+    'IPO',
 }
 
 

@@ -134,6 +134,7 @@ class Portfolio(object):
             pos = self._get_pos_eaa_optima(selection, sig, date)
 
         # Normalize
+        # set_trace()
         pos /= pos.sum()
         pos = pos.fillna(0).clip_upper(self.w_max)
 

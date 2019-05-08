@@ -331,8 +331,8 @@ class BacktestComparator(BacktesterBase):
         return cum#, stats
         
         
-    def mix(self, mix_method, w_min=None, n_mix=None):
-        #set_trace()
+    def mix(self, mix_method, w_min=None, n_mix=None, w_fixed=None):
+#         set_trace()
         self.cum = self.cum.fillna(method='ffill')
         r_mix = self.cum[list(self.backtests.keys())].pct_change()
         dates_asof = list(self.backtests.values())[0].dates_asof
@@ -342,6 +342,11 @@ class BacktestComparator(BacktesterBase):
         if mix_method=='ew':
             alloc = pd.DataFrame(index=dates_asof, columns=r_mix.columns)
             alloc[:] = w_default
+        
+        elif mix_method=='fixed_weight':
+            alloc = pd.DataFrame(index=dates_asof, columns=r_mix.columns)
+            for k,v in w_fixed.items():
+                alloc[k] = v
         
         elif mix_method=='risk_parity':
             r_mix_rolling = r_mix.rolling(60, min_periods=20)
@@ -403,7 +408,7 @@ class BacktestComparator(BacktesterBase):
             cum_mix_['sum'] = cum_mix_.sum()
             mixed.append(cum_mix_)
         
-        #set_trace()
+#         set_trace()
         mixed = pd.DataFrame(mixed, index=self.cum.index)
         self.cum['mixed'] = mixed['sum']
         #self.stats = ev._stats(self.cum, self.beta_to, self.stats_n_roll)

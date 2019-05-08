@@ -46,10 +46,18 @@ class Port(object):
         pos = self._get_pos(date)
         pos = pos.clip_upper(self.w_max)
 
-        #set_trace()
+        # set_trace()
         weight, pos = self._cash_control(date, pos, wealth, model_rtn)
         weight = self._weight_to_trade(weight, date)
         weight, eta = self._te_control(date, weight, wealth)
+
+        # 요거는 임시로 넣는거임
+        # 나중에 반드시 제거할것!!! 2019.04.18
+        
+#         print('반드시 이 부분 제거할것: portfolio.py _get()부분 2019.04.18')
+        
+        weight *= self.alphaw
+        weight.loc[self.market] += (1-self.alphaw)
         
         return weight, pos, eta
 
