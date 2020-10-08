@@ -601,7 +601,33 @@ assets_us_sector = {
     'Financial', 
     'Healthcare', 
     'Industrial', 
-    'REIT', 
+    #'REIT', 
+    'Tech',
+    'Telcom', 
+    'Utility', 
+}
+
+assets_us_factor_sector = {
+    'Quality', 
+    'Value', 
+    'Growth', 
+    'Momentum', 
+    #'DvdApprec', 
+    'HighDvd', 
+    #'HighBeta', 
+    #'LowBeta', 
+    'LowVol', 
+    #'Defensive', 
+    #'ESG', 
+    
+    'Material', 
+    'ConsumerDiscretionary', 
+    'ConsumerStaples', 
+    'Energy', 
+    'Financial', 
+    'Healthcare', 
+    'Industrial', 
+    #'REIT', 
     'Tech',
     'Telcom', 
     'Utility', 
@@ -833,6 +859,102 @@ assets_global_eq3 = {
     'Vietnam',
 }
 
+assets_test_0 = {
+    'ACWI', 
+    'US_Total', 
+    #'US_lev'
+    #'US_Nasdaq', 
+    #'US_Nasdaq_lev', 
+    'Global', 
+    #'EU', 
+    #'Developed', 
+    'EM', 
+    #'Asia_xJp', 
+    #'BRIC', 
+    #'Frontier', 
+    #'Latam', 
+    #'Smallcap_xUS', 
+}
+
+
+assets_test_1 = {
+    'ACWI', 
+    'US_Total',
+    #'US_lev'
+    #'US_Nasdaq', 
+    #'US_Nasdaq_lev', 
+    'Global', 
+    #'EU', 
+    'Developed', 
+    'EM', 
+    'Asia_xJp', 
+    'BRIC', 
+    'Frontier', 
+    'Latam', 
+    #'Smallcap_xUS', 
+}
+
+assets_test_2 = {
+    'Quality', 
+    'Value', 
+    'Growth', 
+    'Momentum', 
+}
+
+
+assets_test_3 = {
+    'Material_Global', 
+    'ConsumerDiscretionary_Global', 
+    'ConsumerStaples_Global', 
+    'Energy_Global', 
+    'Financial_Global', 
+    'Healthcare_Global', 
+    'Industrial_Global', 
+    #'REIT_Global', 
+    'Tech_Global',
+    'Telcom_Global', 
+    'Utility_Global', 
+}
+    
+
+assets_test_4 = {
+    'ACWI', 
+    'US_Total', 
+    'Smallcap_xUS', 
+    'Global', 
+    'EU', 
+    'Developed', 
+    'EM', 
+    'Asia_xJp', 
+    'BRIC', 
+    'Frontier', #
+    'Latam',
+    'Frontier2',
+    'MiddleEast',
+}    
+
+
+assets_test_5 = {
+    'Global', 
+    'EM', 
+}
+
+
+assets_test_6 = {
+    'Quality', 
+    'Value', 
+    'Growth', 
+    'Momentum', 
+    'Momentum_EM', #이거 자체의 성과가 너무 최악
+    'DvdApprec', 
+    'HighDvd', 
+    'HighBeta', 
+    'LowBeta', 
+    'LowVol', 
+    'HighFCF', 
+    'Defensive', 
+}
+    
 
 mapper = {
     
@@ -1155,5 +1277,10 @@ mapper = {
     
     # Multiasset
     'aom_ishares_global_alloc':          'Global_alloc', 
-
+    
+    
+    # US sizes
+    'mgc_vangard_us_mega_cap':           'US_Megacap',
+    'vo_vangard_us_mid_cap':             'US_Midcap',
+    'ijh_ishares_us_small_cap':          'US_Smallcap'
 }
