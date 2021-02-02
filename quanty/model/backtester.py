@@ -100,8 +100,10 @@ class Backtester(BacktesterBase):
         p_profitake = self._p_profitake_last()[1]
         
         p_max_ = p_max_last.to_frame().T.append(p_close).cummax().iloc[1:]
-        self.p_max += [(date_, p_max_.loc[date_]) for date_ in p_max_.index]        
-        sigma = r_losscut_last[p_max_.columns]
+        self.p_max += [(date_, p_max_.loc[date_]) for date_ in p_max_.index]
+        #print(p_max_.columns)
+        #sigma = r_losscut_last[p_max_.columns]
+        sigma = r_losscut_last.reindex(p_max_.columns)
         
         p_losscut = p_max_*(1-sigma)
         p_rentry = p_max_*(1-self.rentry_sigma*sigma)        
