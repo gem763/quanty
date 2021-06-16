@@ -39,7 +39,7 @@ class Plotter(object):
         
         fig = plt.figure()
         ax = prices_.plot(
-            figsize=(7,5), 
+            figsize=(10,5), 
             logy=logy, color=color, style=style, 
             xlim=(prices_.index[0], prices_.index[-1]), 
         )

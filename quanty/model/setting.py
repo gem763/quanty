@@ -327,6 +327,20 @@ assets_kr_factor = {
     #'Pref_kr', ##
 }
 
+assets_kr_factor2 = {
+    'ESG_kr', 
+    'LowVol_kr_2', 
+    'Quality_kr_2', 
+    'Value_kr_2', 
+    'HighDvd_kr', 
+    'K200', 
+    'HighBeta_kr', 
+    'Contrarian_kr', 
+    'DvdGrowth_kr', 
+    'K200L', 
+    'MomentumGrowth_kr', 
+}
+
 
 assets_us_factor = {
     'Quality', 
