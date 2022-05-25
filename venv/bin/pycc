@@ -1,0 +1,3 @@
+#!/Users/quantlab/Documents/GitHub/quanty/venv/bin/python
+from numba.pycc import main
+main()
